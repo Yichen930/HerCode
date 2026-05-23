@@ -18,8 +18,17 @@ function save(key, arr) {
   localStorage.setItem(key, JSON.stringify(arr));
 }
 
-export function listApprovedPosts() {
-  return load(`${NS}:posts`).filter((p) => p.status === "approved");
+export function listApprovedPosts(groupIds = null, groupId = null) {
+  let posts = load(`${NS}:posts`).filter((p) => p.status === "approved");
+  if (groupId) {
+    posts = posts.filter((p) => (p.groupId || p.group_id) === groupId);
+  } else if (groupIds && groupIds.length) {
+    const set = new Set(groupIds);
+    posts = posts.filter((p) => set.has(p.groupId || p.group_id || ""));
+  } else if (groupIds && groupIds.length === 0) {
+    posts = [];
+  }
+  return posts;
 }
 
 export function listMyPosts(authorId) {
@@ -50,6 +59,66 @@ export function addCommentLocal(postId, comment) {
   all.push(comment);
   save(key, all);
   return comment;
+}
+
+function reactionsKey(targetType, targetId) {
+  return `${NS}:reactions:${targetType}:${targetId}`;
+}
+
+function loadReactions(targetType, targetId) {
+  return load(reactionsKey(targetType, targetId));
+}
+
+function saveReactions(targetType, targetId, rows) {
+  save(reactionsKey(targetType, targetId), rows);
+}
+
+/** @returns {{ reactions: object[], totalReactions: number }} */
+export function getReactionSummaryLocal(targetType, targetId, userId) {
+  const rows = loadReactions(targetType, targetId);
+  const counts = new Map();
+  const mine = new Set();
+  for (const row of rows) {
+    const id = row.emojiId || row.emoji_id;
+    if (!id) continue;
+    counts.set(id, (counts.get(id) || 0) + 1);
+    if (row.userId === userId) mine.add(id);
+  }
+  const reactions = [...counts.entries()].map(([emojiId, count]) => ({
+    emojiId,
+    count,
+    reactedByMe: mine.has(emojiId),
+  }));
+  return {
+    reactions,
+    totalReactions: reactions.reduce((n, r) => n + r.count, 0),
+  };
+}
+
+/** Toggle one emoji reaction for a user (local demo). */
+export function toggleReactionLocal(targetType, targetId, userId, emojiId) {
+  const rows = loadReactions(targetType, targetId);
+  const idx = rows.findIndex((r) => r.userId === userId && (r.emojiId || r.emoji_id) === emojiId);
+  if (idx >= 0) rows.splice(idx, 1);
+  else rows.push({ userId, emojiId, createdAt: new Date().toISOString() });
+  saveReactions(targetType, targetId, rows);
+  return getReactionSummaryLocal(targetType, targetId, userId);
+}
+
+/** Attach reaction summaries to posts in offline mode. */
+export function attachLocalPostReactions(posts, userId) {
+  return posts.map((p) => {
+    const summary = getReactionSummaryLocal("post", p.id, userId);
+    return { ...p, ...summary };
+  });
+}
+
+/** Attach reaction summaries to comments in offline mode. */
+export function attachLocalCommentReactions(comments, userId) {
+  return comments.map((c) => {
+    const summary = getReactionSummaryLocal("comment", c.id, userId);
+    return { ...c, ...summary };
+  });
 }
 
 /** Simple offline moderation with patient-facing guidance */

@@ -15,12 +15,27 @@ export const DISMISSAL_ADVOCACY = [
     id: "script3",
     text: "I do not need perfect medical words — I need you to take my concerns seriously and explain next steps.",
   },
+  {
+    id: "script4",
+    text: "I am struggling with body image since treatment — this is emotional distress, not vanity. What support or referrals exist?",
+  },
+  {
+    id: "script5",
+    text: "I still need emotional support even when tests look okay — please do not tell me to stay positive without listening.",
+  },
 ];
 
 export const DISMISSAL_STARTERS = [
   "I was told it is just stress but I do not feel better",
   "I am scared something is wrong and no one believes me",
   "Doctors keep saying it is normal but it affects my daily life",
+];
+
+export const BODY_IMAGE_STARTERS = [
+  "I feel grief when I look in the mirror after surgery",
+  "I am ashamed to talk about reconstruction or how I look",
+  "I worry my partner will not understand how I feel about my body",
+  "I do not know if these feelings are normal after mastectomy",
 ];
 
 /** Step indices in CHAT_STEPS for dismissal-focused guided flow */
@@ -35,7 +50,7 @@ export const DISMISSAL_STEP_IDS = [
 ];
 
 export function getDismissalIntro() {
-  return "Many people are told their symptoms are “just stress,” “normal,” or “in your head.” That can be isolating. Let us focus on what you want your clinician to hear.";
+  return "Many people are told to stay positive, that feelings are “normal,” or that body-image distress is vanity. That can be isolating. Let us focus on what you want someone to hear — clinically or emotionally.";
 }
 
 export function renderDismissalAdvocacyPanel(escapeHtml, onAddQuestion) {

@@ -2,10 +2,16 @@ const TOKEN_KEY = "pdportal_v1:api_token";
 
 let probeCache = null;
 
+/** Base URL for API (empty = same origin). Set meta hearher-api-base for Capacitor / remote server. */
+export function getApiBase() {
+  const meta = document.querySelector('meta[name="hearher-api-base"]')?.content?.trim();
+  return meta ? meta.replace(/\/$/, "") : "";
+}
+
 export async function probeBackend() {
   if (probeCache !== null) return probeCache;
   try {
-    const r = await fetch("/api/health", { method: "GET" });
+    const r = await fetch(`${getApiBase()}/api/health`, { method: "GET" });
     probeCache = r.ok;
   } catch {
     probeCache = false;
@@ -37,7 +43,7 @@ export async function apiFetch(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   const t = getApiToken();
   if (t) headers.Authorization = `Bearer ${t}`;
-  const r = await fetch(`/api${path}`, { ...options, headers });
+  const r = await fetch(`${getApiBase()}/api${path}`, { ...options, headers });
   const text = await r.text();
   if (!r.ok) {
     let detail = text || r.statusText;

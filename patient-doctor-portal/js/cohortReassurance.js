@@ -21,6 +21,8 @@ const REASSURANCE = {
     "Fear between scan or results days is common. This app supports reflection — reach human support when fear feels unmanageable.",
   burnout:
     "Caregivers often try to stay strong while struggling quietly. Support exists for you too.",
+  shame:
+    "Body-image distress after surgery or treatment is widely reported — it is grief, not vanity. Counsellors and peer groups can help.",
   default:
     "Between medical touchpoints, many women and caregivers feel alone — you are not the only one.",
 };
@@ -49,8 +51,13 @@ export function getCohortReassurance(reflectAnswers = {}, supportCollected = {})
     push(REASSURANCE.sideEffects);
   }
 
+  if (reflectAnswers.bodyImage === "hard" || reflectAnswers.bodyImage === "some") {
+    push(REASSURANCE.shame);
+  }
+
   const burden = supportCollected.emotionalBurden;
   if (burden === "fear") push(REASSURANCE.fear);
+  if (burden === "shame") push(REASSURANCE.shame);
   if (burden === "burnout") push(REASSURANCE.burnout);
   if (burden === "dismissed" || supportCollected.toldJustStress === "yes") push(REASSURANCE.dismissed);
 

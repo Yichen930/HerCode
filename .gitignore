@@ -9,4 +9,7 @@ patient-doctor-portal/.env
 dataset/
 patient-doctor-portal-demo.zip
 patient-doctor-portal/.pydeps/
+patient-doctor-portal/node_modules/
+patient-doctor-portal/ios/
+patient-doctor-portal/android/
 backup/scRNA_analysis/deep/_cache/

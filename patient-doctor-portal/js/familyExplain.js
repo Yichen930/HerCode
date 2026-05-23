@@ -120,7 +120,8 @@ export function renderFamilyExplainPage(session, escapeHtml) {
         </div>
         <p id="familyExplainMsg" class="muted"></p>
         <div class="callout callout-info">
-          Linked caregivers can read saved summaries when you enable sharing under <a href="#/patient/settings">Privacy</a>.
+          Partner and adult-child sharing are separate under <a href="#/patient/settings">Privacy</a>.
+          “My children” notes only appear when adult-children sharing is on.
         </div>
       </div>
     </main>`;
@@ -158,7 +159,9 @@ export function initFamilyExplainPage(session) {
     setFamilyExplain(session.patientId, id, editor?.value || "");
     void syncBetweenVisitSnapshot(session);
     document.getElementById("familyExplainMsg").textContent =
-      "Saved. Enable caregiver sharing in Privacy so linked caregivers can read it.";
+      id === "children"
+        ? "Saved. Turn on adult-children sharing in Privacy for linked children to read this."
+        : "Saved. Turn on partner sharing in Privacy for a linked partner to read this.";
   });
 }
 

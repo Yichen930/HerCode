@@ -5,32 +5,174 @@ import {
   addPostLocal,
   addCommentLocal,
   moderateLocal,
+  attachLocalPostReactions,
+  attachLocalCommentReactions,
+  toggleReactionLocal,
 } from "./communityStorage.js";
-import { apiFetch } from "./backend.js";
 import {
-  renderPatientSubmitBanner,
-  renderGuidanceInline,
-} from "./communityModerationUi.js";
+  COMMUNITY_GROUPS,
+  getCommunityGroup,
+  joinLocalGroup,
+  leaveLocalGroup,
+  listLocalGroupMemberships,
+  isValidGroupId,
+} from "./communityGroups.js";
+import { refreshReactionBarElement } from "./communityReactions.js";
+import { apiFetch } from "./backend.js";
+import { renderPatientSubmitBanner } from "./communityModerationUi.js";
+import { luneHomeHref, renderLuneCommunityBackBar } from "./lune/luneShell.js";
+import {
+  LUNE_COMMUNITY_COPY,
+  renderLuneStarfield,
+  renderLuneHero,
+  renderLuneGroupCards,
+  renderLuneFeedTabs,
+  renderLuneUniverseCard,
+  renderLuneMyPostCard,
+  renderLuneComposeForm,
+  renderLuneApprovedBanner,
+  witnessCountForPost,
+} from "./communityLuneUi.js";
+
+function parseCommunityGroupFromHash(basePath) {
+  const hash = location.hash || basePath;
+  const q = hash.split("?")[1] || "";
+  const group = new URLSearchParams(q).get("group") || "";
+  return isValidGroupId(group) ? group : "";
+}
+
+function communityFeedHref(basePath, groupId) {
+  return groupId ? `${basePath}?group=${encodeURIComponent(groupId)}` : basePath;
+}
 
 /**
  * @param {HTMLElement} root
  * @param {object} deps
  */
 export function mountCommunityPage(root, deps) {
-  const { session, renderHeader, bindLogout, escapeHtml, isApiMode } = deps;
+  const {
+    session,
+    renderHeader,
+    bindLogout,
+    escapeHtml,
+    isApiMode,
+    communityRole = "patient",
+    embedded = false,
+    luneBasePath = "",
+  } = deps;
+  const copy = LUNE_COMMUNITY_COPY[communityRole] || LUNE_COMMUNITY_COPY.patient;
+  const basePath =
+    luneBasePath ||
+    (communityRole === "caregiver" ? "#/caregiver/community" : "#/patient/community");
+  const memberId =
+    communityRole === "caregiver"
+      ? session.caregiverId || session.email || session.patientId
+      : session.patientId || session.email;
   let posts = [];
   let myPosts = [];
-  let expandedPostId = null;
+  let groups = COMMUNITY_GROUPS.map((g) => ({ ...g, joined: false, memberCount: 0 }));
+  let joinedGroupIds = [];
+  let feedGroupId = parseCommunityGroupFromHash(basePath);
   let commentsCache = {};
   /** @type {object | null} */
   let lastSubmitFeedback = null;
+  let reactionsBound = false;
+
+  function renderCommentBlock(c) {
+    return `<div class="community-comment lune-comment" data-comment-id="${escapeHtml(c.id)}">
+      <div class="community-comment-head">
+        <strong>${escapeHtml(c.authorDisplay)}</strong>
+        <span class="lune-muted">${escapeHtml(c.createdAt)}</span>
+      </div>
+      <p>${escapeHtml(c.body)}</p>
+    </div>`;
+  }
+
+  async function handleReactionClick(btn) {
+    const targetType = btn.getAttribute("data-react-type");
+    const targetId = btn.getAttribute("data-react-id");
+    const emojiId = btn.getAttribute("data-emoji-id");
+    if (!targetType || !targetId || !emojiId) return;
+    btn.disabled = true;
+    try {
+      let result;
+      if (isApiMode()) {
+        const path =
+          targetType === "post"
+            ? `/community/posts/${encodeURIComponent(targetId)}/reactions`
+            : `/community/comments/${encodeURIComponent(targetId)}/reactions`;
+        result = await apiFetch(path, {
+          method: "POST",
+          body: JSON.stringify({ emoji_id: emojiId }),
+        });
+      } else {
+        result = toggleReactionLocal(targetType, targetId, memberId, emojiId);
+      }
+      const container = btn.closest(".community-reactions");
+      refreshReactionBarElement(container, result.reactions, escapeHtml);
+      if (targetType === "post") {
+        const post = posts.find((p) => p.id === targetId);
+        if (post) {
+          post.reactions = result.reactions;
+          post.totalReactions = result.totalReactions;
+          updateWitnessCountLabel(targetId, post);
+        }
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function updateWitnessCountLabel(postId, post) {
+    const card = root.querySelector(`.lune-universe-card[data-post-id="${postId}"]`);
+    const label = card?.querySelector(".lune-witness-count");
+    if (!label) return;
+    const count = witnessCountForPost(post);
+    label.textContent = count === 1 ? "1 witness" : `${count} witnesses`;
+  }
+
+  function bindReactionDelegation() {
+    if (reactionsBound) return;
+    reactionsBound = true;
+    root.addEventListener("click", (e) => {
+      const btn = e.target.closest(".community-emoji-btn");
+      if (!btn || !root.contains(btn)) return;
+      e.preventDefault();
+      void handleReactionClick(btn);
+    });
+  }
+
+  async function loadGroups() {
+    if (isApiMode()) {
+      const res = await apiFetch("/community/groups");
+      groups = res.groups || groups;
+      joinedGroupIds = res.joinedGroupIds || [];
+      return;
+    }
+    joinedGroupIds = listLocalGroupMemberships(memberId);
+    groups = COMMUNITY_GROUPS.map((g) => ({
+      ...g,
+      joined: joinedGroupIds.includes(g.id),
+      memberCount: listApprovedPosts(null, g.id).length,
+    }));
+  }
 
   async function loadPosts() {
     if (isApiMode()) {
-      posts = await apiFetch("/community/posts");
+      const path = feedGroupId
+        ? `/community/posts?group_id=${encodeURIComponent(feedGroupId)}`
+        : "/community/posts";
+      posts = await apiFetch(path);
       return;
     }
-    posts = listApprovedPosts();
+    if (feedGroupId) {
+      posts = listApprovedPosts(null, feedGroupId);
+    } else {
+      posts = listApprovedPosts(joinedGroupIds);
+    }
+    posts = attachLocalPostReactions(posts, memberId);
   }
 
   async function loadMyPosts() {
@@ -38,7 +180,7 @@ export function mountCommunityPage(root, deps) {
       myPosts = await apiFetch("/community/posts/mine");
       return;
     }
-    myPosts = listMyPosts(session.patientId);
+    myPosts = listMyPosts(memberId);
   }
 
   async function loadComments(postId) {
@@ -47,109 +189,153 @@ export function mountCommunityPage(root, deps) {
       return;
     }
     commentsCache[postId] = listComments(postId);
+    commentsCache[postId] = attachLocalCommentReactions(commentsCache[postId], memberId);
   }
 
-  function renderApprovedPostCard(p) {
-    return `
-      <article class="community-post" data-post-id="${escapeHtml(p.id)}">
-        <div class="community-post-head">
-          <strong>${escapeHtml(p.authorDisplay)}</strong>
-          <span class="muted">${escapeHtml(p.createdAt)}</span>
-        </div>
-        <p class="community-post-body">${escapeHtml(p.body)}</p>
-        <button type="button" class="btn btn-ghost btn-sm community-toggle-comments" data-pid="${escapeHtml(p.id)}">
-          Comments (${p.commentCount || 0})
-        </button>
-        <div class="community-comments" id="comments-${escapeHtml(p.id)}" style="display:none;"></div>
-        <form class="community-comment-form" data-pid="${escapeHtml(p.id)}" style="display:none;">
-          <input type="text" name="body" placeholder="Write a supportive comment…" maxlength="500" required />
-          <button class="btn btn-primary" type="submit">Comment</button>
-        </form>
-      </article>`;
+  async function toggleJoin(groupId, join) {
+    if (isApiMode()) {
+      await apiFetch(`/community/groups/${encodeURIComponent(groupId)}/join`, {
+        method: join ? "POST" : "DELETE",
+      });
+      if (!join && feedGroupId === groupId) {
+        location.hash = basePath;
+      }
+    } else if (join) {
+      joinedGroupIds = joinLocalGroup(memberId, groupId);
+    } else {
+      joinedGroupIds = leaveLocalGroup(memberId, groupId);
+      if (feedGroupId === groupId) {
+        feedGroupId = "";
+        location.hash = basePath;
+      }
+    }
+    await loadGroups();
+    await render();
   }
 
-  function renderMyPostCard(p) {
-    const rejected = p.status !== "approved";
-    return `
-      <article class="community-post community-post--mine ${rejected ? "community-post--rejected" : "community-post--published"}">
-        <div class="community-post-head">
-          <span class="badge badge-status-${escapeHtml(p.status)}">${escapeHtml(p.status === "approved" ? "published" : p.status)}</span>
-          <span class="muted">${escapeHtml(p.createdAt)}</span>
-        </div>
-        <p class="community-post-body">${escapeHtml(p.body)}</p>
-        ${rejected ? renderGuidanceInline(p, escapeHtml) : `<p class="muted community-mod-note">Visible in the community feed.</p>`}
-      </article>`;
+  function renderCommentsInto(box, comments) {
+    if (!box) return;
+    box.innerHTML =
+      comments.length === 0
+        ? `<p class="lune-muted community-chat-empty">No quiet notes yet — yours can be the first.</p>`
+        : comments.map(renderCommentBlock).join("");
   }
 
-  function renderApprovedBanner(item) {
-    if (!item || item.status !== "approved") return "";
-    const msg =
-      item.patientMessage ||
-      "Published — thank you for contributing. This is peer support, not medical advice.";
-    return `
-      <div class="community-approved-banner" role="status" id="communityLastResult">
-        <span class="badge badge-status-approved">PUBLISHED</span>
-        <p class="community-guidance-text">${escapeHtml(msg)}</p>
-      </div>`;
+  async function setDiscussionOpen(pid, open) {
+    const expand = document.getElementById(`lune-expand-${pid}`);
+    const box = document.getElementById(`comments-${pid}`);
+    const form = root.querySelector(`form.community-comment-form[data-pid="${pid}"]`);
+    const toggle = root.querySelector(`.community-discussion-toggle[data-pid="${pid}"]`);
+    if (!expand || !toggle) return;
+    if (open) {
+      await loadComments(pid);
+      renderCommentsInto(box, commentsCache[pid] || []);
+      expand.hidden = false;
+      if (form) form.hidden = false;
+      toggle.classList.add("is-open");
+      toggle.setAttribute("aria-expanded", "true");
+      expand.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else {
+      expand.hidden = true;
+      if (form) form.hidden = true;
+      toggle.classList.remove("is-open");
+      toggle.setAttribute("aria-expanded", "false");
+    }
   }
+
+  const homeHref = luneHomeHref(basePath);
 
   const render = async () => {
+    feedGroupId = parseCommunityGroupFromHash(basePath);
+    if (!embedded) {
+      document.body.classList.add("lune-community-active");
+    }
     const feedbackHtml =
       lastSubmitFeedback?.status === "approved"
-        ? renderApprovedBanner(lastSubmitFeedback)
+        ? renderLuneApprovedBanner(lastSubmitFeedback, escapeHtml)
         : renderPatientSubmitBanner(lastSubmitFeedback, escapeHtml);
 
     root.innerHTML =
-      renderHeader(session) +
+      (embedded ? "" : renderHeader(session)) +
       `
-      <main>
-        <div class="card">
-          <h1>Community</h1>
-          <p class="muted">Peer support for people affected by breast cancer and caregivers. Every post is reviewed automatically before publishing. Not medical advice or emergency care.</p>
+      <main class="portal-mobile lune-community${embedded ? " lune-community--embedded" : ""}">
+        ${embedded ? "" : renderLuneStarfield()}
+        <div class="lune-community-inner">
+          ${embedded ? `${renderLuneCommunityBackBar(homeHref, escapeHtml)}<header class="lune-witnesses-head"><h2 class="lune-section-title">${escapeHtml(copy.feedTitle)}</h2><p class="lune-muted">${escapeHtml(copy.feedIntro)}</p></header>` : renderLuneHero(copy, escapeHtml)}
           ${feedbackHtml}
-          <div class="callout callout-support">
-            Share encouragement, coping strategies, or questions for your clinician—use “I feel” / “my experience”. Avoid naming doctors, sharing contact info, or telling others what disease they have.
-          </div>
-          <h2>Share with the community</h2>
-          <form id="communityPostForm" class="community-compose">
-            <textarea id="communityPostBody" rows="4" placeholder="e.g. It took years before anyone took my pain seriously…" maxlength="2000" required></textarea>
-            <button class="btn btn-primary" type="submit">Submit for review</button>
-          </form>
-          <p id="communityPostMsg" class="community-post-msg" aria-live="polite"></p>
 
-          <h2>Your submissions</h2>
-          <p class="muted">Includes posts that were <strong>not published</strong>—read the guidance below each rejected entry.</p>
-          <div id="communityMyPosts" class="community-feed community-feed--mine">
-            <p class="muted">Loading…</p>
-          </div>
+          <section class="lune-section">
+            <h2 class="lune-section-title">${escapeHtml(copy.groupsTitle)}</h2>
+            <p class="lune-muted">${escapeHtml(copy.groupsLead)}</p>
+            <div id="communityGroupsHost"><p class="lune-muted">Loading groups…</p></div>
+          </section>
 
-          <h2>Community feed</h2>
-          <div id="communityFeed" class="community-feed">
-            <p class="muted">Loading…</p>
-          </div>
-          <p class="muted community-foot-note">If something urgent comes up, contact emergency services or your clinician. Linked clinicians may see rejected posts in their safety log.</p>
+          <section class="lune-section lune-section--compose">
+            <h2 class="lune-section-title">${escapeHtml(copy.composeTitle)}</h2>
+            ${renderLuneComposeForm(joinedGroupIds, feedGroupId, copy, escapeHtml)}
+            <p id="communityPostMsg" class="community-post-msg" aria-live="polite"></p>
+          </section>
+
+          <section class="lune-section">
+            ${embedded ? "" : `<h2 class="lune-section-title">${escapeHtml(copy.feedTitle)}</h2><p class="lune-muted lune-feed-intro">${escapeHtml(copy.feedIntro)}</p>`}
+            ${renderLuneFeedTabs(joinedGroupIds, feedGroupId, basePath, escapeHtml, communityFeedHref)}
+            <div id="communityFeed" class="lune-universe-feed community-feed">
+              <p class="lune-muted">Loading…</p>
+            </div>
+          </section>
+
+          <details class="lune-section lune-section--mine">
+            <summary class="lune-section-title">${escapeHtml(copy.myPostsTitle)}</summary>
+            <p class="lune-muted">Includes posts not published — read guidance on each rejected entry.</p>
+            <div id="communityMyPosts" class="lune-universe-feed community-feed community-feed--mine">
+              <p class="lune-muted">Loading…</p>
+            </div>
+          </details>
+
+          <p class="lune-muted lune-foot-note">${escapeHtml(copy.footNote)}</p>
         </div>
       </main>`;
 
-    bindLogout();
+    if (!embedded) {
+      bindLogout();
+    }
 
     try {
+      await loadGroups();
+      document.getElementById("communityGroupsHost").innerHTML = renderLuneGroupCards(
+        groups,
+        joinedGroupIds,
+        basePath,
+        escapeHtml,
+        communityFeedHref
+      );
       await Promise.all([loadPosts(), loadMyPosts()]);
+
       const feed = document.getElementById("communityFeed");
-      feed.innerHTML =
-        posts.length === 0
-          ? `<p class="muted">No published posts yet. Yours will appear here after safety review approves it.</p>`
-          : posts.map(renderApprovedPostCard).join("");
+      if (!joinedGroupIds.length) {
+        feed.innerHTML = `<p class="lune-muted">Join a constellation to witness others on a similar journey.</p>`;
+      } else if (posts.length === 0) {
+        const label = feedGroupId ? getCommunityGroup(feedGroupId)?.label || "this group" : "your groups";
+        feed.innerHTML = `<p class="lune-muted">No published stories in ${escapeHtml(label)} yet. Yours can be the first after review.</p>`;
+      } else {
+        feed.innerHTML = posts.map((p) => renderLuneUniverseCard(p, copy, escapeHtml)).join("");
+        for (const p of posts) {
+          if ((p.commentCount || 0) > 0) {
+            await setDiscussionOpen(p.id, true);
+          }
+        }
+      }
 
       const mine = document.getElementById("communityMyPosts");
       mine.innerHTML =
         myPosts.length === 0
-          ? `<p class="muted">You have not submitted any posts yet.</p>`
-          : myPosts.map(renderMyPostCard).join("");
+          ? `<p class="lune-muted">You have not submitted any posts yet.</p>`
+          : myPosts.map((p) => renderLuneMyPostCard(p, escapeHtml)).join("");
     } catch (e) {
       const err = escapeHtml(e instanceof Error ? e.message : String(e));
-      document.getElementById("communityFeed").innerHTML = `<p class="muted">${err}</p>`;
-      document.getElementById("communityMyPosts").innerHTML = `<p class="muted">${err}</p>`;
+      document.getElementById("communityGroupsHost").innerHTML = `<p class="lune-muted">${err}</p>`;
+      document.getElementById("communityFeed").innerHTML = `<p class="lune-muted">${err}</p>`;
+      document.getElementById("communityMyPosts").innerHTML = `<p class="lune-muted">${err}</p>`;
     }
 
     if (lastSubmitFeedback) {
@@ -157,29 +343,50 @@ export function mountCommunityPage(root, deps) {
     }
 
     bindInteractions();
+    bindReactionDelegation();
   };
 
   function bindInteractions() {
+    root.querySelectorAll("[data-join-group]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const groupId = btn.getAttribute("data-join-group");
+        const action = btn.getAttribute("data-join-action");
+        if (!groupId) return;
+        btn.disabled = true;
+        try {
+          await toggleJoin(groupId, action === "join");
+        } catch (err) {
+          alert(err instanceof Error ? err.message : String(err));
+          btn.disabled = false;
+        }
+      });
+    });
+
     document.getElementById("communityPostForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const msg = document.getElementById("communityPostMsg");
       const body = document.getElementById("communityPostBody").value.trim();
+      const groupId = document.getElementById("communityPostGroup")?.value || joinedGroupIds[0];
       msg.textContent = "Reviewing your post for safety…";
-      msg.className = "community-post-msg muted";
+      msg.className = "community-post-msg lune-muted";
       try {
         let result;
         if (isApiMode()) {
           result = await apiFetch("/community/posts", {
             method: "POST",
-            body: JSON.stringify({ body }),
+            body: JSON.stringify({ body, group_id: groupId }),
           });
         } else {
+          if (!joinedGroupIds.includes(groupId)) {
+            throw new Error("Join this group before posting.");
+          }
           const mod = moderateLocal(body);
           result = addPostLocal({
             id: crypto.randomUUID(),
-            authorId: session.patientId,
+            authorId: memberId,
             authorDisplay: session.displayName,
             body,
+            groupId,
             status: mod.approved ? "approved" : "rejected",
             moderationReason: mod.reason,
             guidanceType: mod.guidanceType,
@@ -192,36 +399,18 @@ export function mountCommunityPage(root, deps) {
         await render();
       } catch (err) {
         lastSubmitFeedback = null;
-        msg.className = "community-post-msg callout danger";
+        msg.className = "community-post-msg lune-banner lune-banner--danger";
         msg.textContent = err instanceof Error ? err.message : String(err);
       }
     });
 
-    root.querySelectorAll(".community-toggle-comments").forEach((btn) => {
+    root.querySelectorAll(".community-discussion-toggle").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const pid = btn.getAttribute("data-pid");
-        const box = document.getElementById(`comments-${pid}`);
-        const form = root.querySelector(`form.community-comment-form[data-pid="${pid}"]`);
-        if (!box) return;
-        const open = box.style.display !== "none";
-        if (open) {
-          box.style.display = "none";
-          if (form) form.style.display = "none";
-          return;
-        }
-        await loadComments(pid);
-        const comments = commentsCache[pid] || [];
-        box.innerHTML =
-          comments.length === 0
-            ? `<p class="muted">No comments yet.</p>`
-            : comments
-                .map(
-                  (c) =>
-                    `<div class="community-comment"><strong>${escapeHtml(c.authorDisplay)}</strong> <span class="muted">${escapeHtml(c.createdAt)}</span><p>${escapeHtml(c.body)}</p></div>`
-                )
-                .join("");
-        box.style.display = "block";
-        if (form) form.style.display = "flex";
+        if (!pid) return;
+        const expand = document.getElementById(`lune-expand-${pid}`);
+        const isOpen = expand && !expand.hidden;
+        await setDiscussionOpen(pid, !isOpen);
       });
     });
 
@@ -229,7 +418,7 @@ export function mountCommunityPage(root, deps) {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const pid = form.getAttribute("data-pid");
-        const input = form.querySelector('input[name="body"]');
+        const input = form.querySelector('textarea[name="body"], input[name="body"]');
         const text = (input?.value || "").trim();
         if (!text) return;
         try {
@@ -266,19 +455,21 @@ export function mountCommunityPage(root, deps) {
           input.value = "";
           await loadComments(pid);
           const box = document.getElementById(`comments-${pid}`);
-          const comments = commentsCache[pid] || [];
-          box.innerHTML = comments
-            .map(
-              (c) =>
-                `<div class="community-comment"><strong>${escapeHtml(c.authorDisplay)}</strong><p>${escapeHtml(c.body)}</p></div>`
-            )
-            .join("");
+          renderCommentsInto(box, commentsCache[pid] || []);
+          const post = posts.find((p) => p.id === pid);
+          if (post) post.commentCount = (post.commentCount || 0) + 1;
+          updateWitnessCountLabel(pid, post);
         } catch (err) {
           alert(err instanceof Error ? err.message : String(err));
         }
       });
     });
   }
+
+  window.addEventListener("hashchange", () => {
+    const next = parseCommunityGroupFromHash(basePath);
+    if (next !== feedGroupId) void render();
+  });
 
   render();
 }

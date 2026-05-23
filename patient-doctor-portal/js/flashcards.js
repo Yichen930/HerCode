@@ -103,6 +103,13 @@ const MYTHS = [
     back: "No. This companion helps you reflect, prepare questions, and feel less alone between touchpoints — human care remains essential.",
   },
   {
+    id: "myth-body",
+    deck: "Emotional support",
+    tag: "Body image",
+    front: "“I should be grateful — other people have it worse.”",
+    back: "Gratitude and grief can coexist. Body-image distress after surgery is widely reported. Counsellors, peers, and your oncology team can discuss feelings and options without judgment.",
+  },
+  {
     id: "myth-alone",
     deck: "Emotional support",
     tag: "You are not alone",

@@ -30,6 +30,13 @@ const PROMPTS = [
     theme: "human",
   },
   {
+    id: "messages",
+    question: "Need an emergency contact in case something feels urgent?",
+    desc: "Call or text your linked clinician or caregiver — one tap away.",
+    href: "#/patient/messages",
+    theme: "messages",
+  },
+  {
     id: "screening",
     question: "Thinking about your annual check-up?",
     desc: "Fear of knowing, faith & privacy, or «it won't happen to me».",

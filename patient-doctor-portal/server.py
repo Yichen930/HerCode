@@ -87,6 +87,53 @@ def _ensure_user_columns(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE users ADD COLUMN share_with_caregiver INTEGER NOT NULL DEFAULT 0"
         )
+    if "share_with_partner" not in cols:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN share_with_partner INTEGER NOT NULL DEFAULT 0"
+        )
+        conn.execute(
+            """
+            UPDATE users SET share_with_partner = COALESCE(share_with_caregiver, 0)
+            WHERE share_with_partner = 0 AND COALESCE(share_with_caregiver, 0) = 1
+            """
+        )
+    if "share_with_children" not in cols:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN share_with_children INTEGER NOT NULL DEFAULT 0"
+        )
+        conn.execute(
+            """
+            UPDATE users SET share_with_children = COALESCE(share_with_caregiver, 0)
+            WHERE share_with_children = 0 AND COALESCE(share_with_caregiver, 0) = 1
+            """
+        )
+    if "contact_phone" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN contact_phone TEXT")
+
+
+def _ensure_direct_messages_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS direct_messages (
+            id TEXT PRIMARY KEY,
+            patient_user_id INTEGER NOT NULL,
+            channel TEXT NOT NULL CHECK (channel IN ('doctor', 'caregiver')),
+            sender_role TEXT NOT NULL CHECK (sender_role IN ('patient', 'doctor', 'caregiver')),
+            sender_user_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            urgent INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (patient_user_id) REFERENCES users(id),
+            FOREIGN KEY (sender_user_id) REFERENCES users(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_direct_messages_patient_channel
+        ON direct_messages (patient_user_id, channel, created_at)
+        """
+    )
 
 
 def _ensure_caregiver_schema(conn: sqlite3.Connection) -> None:
@@ -112,11 +159,19 @@ def _ensure_caregiver_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    link_cols = {r[1] for r in conn.execute("PRAGMA table_info(caregiver_patient_links)").fetchall()}
+    if "relationship" not in link_cols:
+        conn.execute(
+            """
+            ALTER TABLE caregiver_patient_links
+            ADD COLUMN relationship TEXT NOT NULL DEFAULT 'other'
+            """
+        )
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
     ).fetchone()
     sql = (row["sql"] if row else "") or ""
-    role_check_ok = "role IN ('patient', 'doctor', 'caregiver')" in sql.replace(" ", "")
+    role_check_ok = "roleIN('patient','doctor','caregiver')" in sql.replace(" ", "")
     if not role_check_ok:
         conn.executescript(
             """
@@ -128,12 +183,16 @@ def _ensure_caregiver_schema(conn: sqlite3.Connection) -> None:
                 display_name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 share_chat_with_doctor INTEGER NOT NULL DEFAULT 0,
-                share_with_caregiver INTEGER NOT NULL DEFAULT 0
+                share_with_caregiver INTEGER NOT NULL DEFAULT 0,
+                share_with_partner INTEGER NOT NULL DEFAULT 0,
+                share_with_children INTEGER NOT NULL DEFAULT 0
             );
-            INSERT INTO users_role_mig (id, email, password_hash, role, display_name, created_at, share_chat_with_doctor, share_with_caregiver)
+            INSERT INTO users_role_mig (id, email, password_hash, role, display_name, created_at, share_chat_with_doctor, share_with_caregiver, share_with_partner, share_with_children)
             SELECT id, email, password_hash, role, display_name, created_at,
                    COALESCE(share_chat_with_doctor, 0),
-                   COALESCE(share_with_caregiver, 0)
+                   COALESCE(share_with_caregiver, 0),
+                   COALESCE(share_with_partner, 0),
+                   COALESCE(share_with_children, 0)
             FROM users;
             DROP TABLE users;
             ALTER TABLE users_role_mig RENAME TO users;
@@ -154,6 +213,43 @@ def _ensure_community_columns(conn: sqlite3.Connection) -> None:
             conn.execute(
                 f"ALTER TABLE {table} ADD COLUMN moderation_guidance_json TEXT NOT NULL DEFAULT '{{}}'"
             )
+    post_cols = {r[1] for r in conn.execute("PRAGMA table_info(community_posts)").fetchall()}
+    if "group_id" not in post_cols:
+        conn.execute(
+            "ALTER TABLE community_posts ADD COLUMN group_id TEXT NOT NULL DEFAULT 'survivorship'"
+        )
+
+
+def _ensure_community_groups_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS community_group_memberships (
+            user_id INTEGER NOT NULL,
+            group_id TEXT NOT NULL,
+            joined_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, group_id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+        """
+    )
+    _ensure_community_columns(conn)
+    _ensure_community_reactions_schema(conn)
+
+
+def _ensure_community_reactions_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS community_reactions (
+            target_type TEXT NOT NULL CHECK (target_type IN ('post', 'comment')),
+            target_id TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            emoji_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (target_type, target_id, user_id, emoji_id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+        """
+    )
 
 
 def init_db() -> None:
@@ -249,8 +345,10 @@ def init_db() -> None:
         )
         _ensure_user_columns(conn)
         _ensure_submission_columns(conn)
-        _ensure_community_columns(conn)
+        _ensure_community_groups_schema(conn)
         _ensure_caregiver_schema(conn)
+        _ensure_direct_messages_schema(conn)
+        _ensure_user_columns(conn)
 
 
 class RegisterBody(BaseModel):
@@ -278,7 +376,14 @@ class ConsentBody(BaseModel):
 
 
 class CaregiverConsentBody(BaseModel):
-    share_with_caregiver: bool
+    share_with_partner: bool | None = None
+    share_with_children: bool | None = None
+    share_with_caregiver: bool | None = None  # legacy — sets both when used alone
+
+
+class CaregiverLinkBody(BaseModel):
+    patient_email: EmailStr
+    relationship: str = Field(default="other", pattern="^(partner|child|other)$")
 
 
 class BetweenVisitBody(BaseModel):
@@ -290,6 +395,11 @@ class ChatMessageBody(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
 
 
+class DirectMessageBody(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+    urgent: bool = False
+
+
 class AiReplyBody(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     context: dict | None = None
@@ -297,6 +407,15 @@ class AiReplyBody(BaseModel):
 
 class CommunityBody(BaseModel):
     body: str = Field(min_length=3, max_length=2000)
+
+
+class CommunityPostBody(BaseModel):
+    body: str = Field(min_length=3, max_length=2000)
+    group_id: str = Field(min_length=1, max_length=40)
+
+
+class CommunityReactionBody(BaseModel):
+    emoji_id: str = Field(min_length=1, max_length=32)
 
 
 class ClinicalRecordBody(BaseModel):
@@ -309,6 +428,8 @@ class ClinicalRecordBody(BaseModel):
 def row_user(r: sqlite3.Row) -> dict:
     share = 0
     share_cg = 0
+    share_partner = 0
+    share_children = 0
     try:
         share = int(r["share_chat_with_doctor"] or 0)
     except (KeyError, IndexError):
@@ -317,13 +438,66 @@ def row_user(r: sqlite3.Row) -> dict:
         share_cg = int(r["share_with_caregiver"] or 0)
     except (KeyError, IndexError):
         share_cg = 0
+    try:
+        share_partner = int(r["share_with_partner"] or 0)
+    except (KeyError, IndexError):
+        share_partner = share_cg
+    try:
+        share_children = int(r["share_with_children"] or 0)
+    except (KeyError, IndexError):
+        share_children = share_cg
     return {
         "id": r["id"],
         "email": r["email"],
         "role": r["role"],
         "display_name": r["display_name"],
         "share_chat_with_doctor": bool(share),
-        "share_with_caregiver": bool(share_cg),
+        "share_with_caregiver": bool(share_cg or share_partner or share_children),
+        "share_with_partner": bool(share_partner),
+        "share_with_children": bool(share_children),
+    }
+
+
+def _caregiver_relationship(row: sqlite3.Row) -> str:
+    try:
+        rel = (row["relationship"] or "other").strip().lower()
+    except (KeyError, IndexError):
+        rel = "other"
+    return rel if rel in ("partner", "child", "other") else "other"
+
+
+def _patient_sharing_enabled_for_caregiver(patient_row: sqlite3.Row, relationship: str) -> bool:
+    if relationship == "child":
+        try:
+            return bool(int(patient_row["share_with_children"] or 0))
+        except (KeyError, IndexError):
+            return bool(int(patient_row["share_with_caregiver"] or 0))
+    try:
+        return bool(int(patient_row["share_with_partner"] or 0))
+    except (KeyError, IndexError):
+        return bool(int(patient_row["share_with_caregiver"] or 0))
+
+
+def _filter_snapshot_for_caregiver(snapshot: dict, relationship: str) -> dict:
+    if relationship != "child":
+        return snapshot
+    reflect = snapshot.get("reflectAnswers") or {}
+    child_reflect = {}
+    if reflect.get("phase"):
+        child_reflect["phase"] = reflect["phase"]
+    if reflect.get("mood"):
+        child_reflect["mood"] = reflect["mood"]
+    family = snapshot.get("familyExplainByAudience") or {}
+    child_family = {}
+    if family.get("children"):
+        child_family["children"] = family["children"]
+    return {
+        **snapshot,
+        "supportCollected": {},
+        "reflectAnswers": child_reflect,
+        "visitBriefText": "",
+        "visitQuestions": [],
+        "familyExplainByAudience": child_family,
     }
 
 
@@ -513,11 +687,28 @@ def update_consent(body: ConsentBody, user: sqlite3.Row = Depends(get_current_us
 def update_caregiver_consent(body: CaregiverConsentBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
     if user["role"] != "patient":
         raise HTTPException(status_code=403, detail="Only patients can set caregiver sharing consent")
-    val = 1 if body.share_with_caregiver else 0
     with get_db() as conn:
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+        partner_val = int(row["share_with_partner"] or 0)
+        children_val = int(row["share_with_children"] or 0)
+        if body.share_with_partner is not None:
+            partner_val = 1 if body.share_with_partner else 0
+        if body.share_with_children is not None:
+            children_val = 1 if body.share_with_children else 0
+        if (
+            body.share_with_caregiver is not None
+            and body.share_with_partner is None
+            and body.share_with_children is None
+        ):
+            partner_val = children_val = 1 if body.share_with_caregiver else 0
+        legacy_val = 1 if (partner_val or children_val) else 0
         conn.execute(
-            "UPDATE users SET share_with_caregiver = ? WHERE id = ?",
-            (val, user["id"]),
+            """
+            UPDATE users
+            SET share_with_partner = ?, share_with_children = ?, share_with_caregiver = ?
+            WHERE id = ?
+            """,
+            (partner_val, children_val, legacy_val, user["id"]),
         )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
     return {"user": row_user(row)}
@@ -584,6 +775,177 @@ def clear_chat(user: sqlite3.Row = Depends(get_current_user)) -> dict:
     return {"ok": True}
 
 
+def _direct_message_from_row(r: sqlite3.Row) -> dict:
+    return {
+        "id": r["id"],
+        "channel": r["channel"],
+        "senderRole": r["sender_role"],
+        "senderDisplayName": r["sender_display_name"],
+        "text": r["text"],
+        "urgent": bool(r["urgent"]),
+        "createdAt": r["created_at"],
+    }
+
+
+def _list_direct_messages(conn: sqlite3.Connection, patient_user_id: int, channel: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT m.id, m.channel, m.sender_role, m.sender_user_id, m.text, m.urgent, m.created_at,
+               u.display_name AS sender_display_name
+        FROM direct_messages m
+        JOIN users u ON u.id = m.sender_user_id
+        WHERE m.patient_user_id = ? AND m.channel = ?
+        ORDER BY m.created_at ASC
+        """,
+        (patient_user_id, channel),
+    ).fetchall()
+    return [_direct_message_from_row(r) for r in rows]
+
+
+def _insert_direct_message(
+    conn: sqlite3.Connection,
+    *,
+    patient_user_id: int,
+    channel: str,
+    sender_role: str,
+    sender_user_id: int,
+    text: str,
+    urgent: bool,
+) -> dict:
+    mid = str(uuid.uuid4())
+    created = utcnow().isoformat()
+    conn.execute(
+        """
+        INSERT INTO direct_messages
+            (id, patient_user_id, channel, sender_role, sender_user_id, text, urgent, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (mid, patient_user_id, channel, sender_role, sender_user_id, text.strip(), 1 if urgent else 0, created),
+    )
+    row = conn.execute(
+        """
+        SELECT m.id, m.channel, m.sender_role, m.sender_user_id, m.text, m.urgent, m.created_at,
+               u.display_name AS sender_display_name
+        FROM direct_messages m
+        JOIN users u ON u.id = m.sender_user_id
+        WHERE m.id = ?
+        """,
+        (mid,),
+    ).fetchone()
+    return _direct_message_from_row(row)
+
+
+def _patient_has_linked_doctor(conn: sqlite3.Connection, patient_user_id: int) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM doctor_patient_links WHERE patient_user_id = ? LIMIT 1",
+        (patient_user_id,),
+    ).fetchone()
+    return row is not None
+
+
+def _patient_has_linked_caregiver(conn: sqlite3.Connection, patient_user_id: int) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM caregiver_patient_links WHERE patient_user_id = ? LIMIT 1",
+        (patient_user_id,),
+    ).fetchone()
+    return row is not None
+
+
+@app.get("/api/direct-messages/contacts")
+def direct_message_contacts(user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "patient":
+        raise HTTPException(status_code=403, detail="Patients only")
+    with get_db() as conn:
+        doctors = conn.execute(
+            """
+            SELECT u.email, u.display_name, u.contact_phone FROM doctor_patient_links l
+            JOIN users u ON u.id = l.doctor_user_id
+            WHERE l.patient_user_id = ?
+            ORDER BY l.created_at ASC
+            """,
+            (user["id"],),
+        ).fetchall()
+        caregivers = conn.execute(
+            """
+            SELECT u.email, u.display_name, u.contact_phone, l.relationship
+            FROM caregiver_patient_links l
+            JOIN users u ON u.id = l.caregiver_user_id
+            WHERE l.patient_user_id = ?
+            ORDER BY l.created_at ASC
+            """,
+            (user["id"],),
+        ).fetchall()
+    doctor = doctors[0] if doctors else None
+    caregiver_rows = [
+        {
+            "displayName": r["display_name"],
+            "email": r["email"],
+            "phone": r["contact_phone"] or None,
+            "relationship": r["relationship"] or "other",
+        }
+        for r in caregivers
+    ]
+    return {
+        "hasLinkedDoctor": doctor is not None,
+        "hasLinkedCaregiver": len(caregiver_rows) > 0,
+        "doctorDisplayName": doctor["display_name"] if doctor else None,
+        "doctorEmail": doctor["email"] if doctor else None,
+        "doctorPhone": doctor["contact_phone"] if doctor else None,
+        "caregiverDisplayNames": [r["displayName"] for r in caregiver_rows],
+        "caregiverEmails": [r["email"] for r in caregiver_rows],
+        "caregivers": caregiver_rows,
+        "doctor": (
+            {
+                "displayName": doctor["display_name"],
+                "email": doctor["email"],
+                "phone": doctor["contact_phone"] or None,
+            }
+            if doctor
+            else None
+        ),
+    }
+
+
+@app.get("/api/direct-messages/{channel}")
+def list_patient_direct_messages(channel: str, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "patient":
+        raise HTTPException(status_code=403, detail="Patients only")
+    if channel not in ("doctor", "caregiver"):
+        raise HTTPException(status_code=400, detail="Invalid channel")
+    with get_db() as conn:
+        if channel == "doctor" and not _patient_has_linked_doctor(conn, user["id"]):
+            return {"linked": False, "messages": [], "message": "No linked clinician yet."}
+        if channel == "caregiver" and not _patient_has_linked_caregiver(conn, user["id"]):
+            return {"linked": False, "messages": [], "message": "No linked caregiver yet."}
+        messages = _list_direct_messages(conn, user["id"], channel)
+    return {"linked": True, "messages": messages}
+
+
+@app.post("/api/direct-messages/{channel}")
+def send_patient_direct_message(
+    channel: str, body: DirectMessageBody, user: sqlite3.Row = Depends(get_current_user)
+) -> dict:
+    if user["role"] != "patient":
+        raise HTTPException(status_code=403, detail="Patients only")
+    if channel not in ("doctor", "caregiver"):
+        raise HTTPException(status_code=400, detail="Invalid channel")
+    with get_db() as conn:
+        if channel == "doctor" and not _patient_has_linked_doctor(conn, user["id"]):
+            raise HTTPException(status_code=404, detail="No linked clinician")
+        if channel == "caregiver" and not _patient_has_linked_caregiver(conn, user["id"]):
+            raise HTTPException(status_code=404, detail="No linked caregiver")
+        msg = _insert_direct_message(
+            conn,
+            patient_user_id=user["id"],
+            channel=channel,
+            sender_role="patient",
+            sender_user_id=user["id"],
+            text=body.text,
+            urgent=body.urgent,
+        )
+    return msg
+
+
 def _enrich_moderation_guidance(r: sqlite3.Row, guidance: dict) -> dict:
     """Backfill guidance for rows saved before moderation_guidance_json existed."""
     body = (r["body"] or "").lower()
@@ -616,6 +978,113 @@ def _enrich_moderation_guidance(r: sqlite3.Row, guidance: dict) -> dict:
     return {"guidanceType": gt, "patientMessage": msg[:800]}
 
 
+COMMUNITY_GROUPS: list[dict[str, str]] = [
+    {"id": "newly-diagnosed", "label": "Newly diagnosed", "desc": "Shock, first steps, telling family", "theme": "new"},
+    {"id": "chemo", "label": "Chemotherapy", "desc": "Cycles, fatigue, nausea, hair loss", "theme": "chemo"},
+    {"id": "surgery", "label": "Surgery & mastectomy", "desc": "Before/after op, recovery, scars", "theme": "surgery"},
+    {"id": "radiation", "label": "Radiation", "desc": "Daily treatment, skin changes, tiredness", "theme": "radiation"},
+    {"id": "body-image", "label": "Body image & reconstruction", "desc": "Mirrors, prosthetics, identity", "theme": "body"},
+    {"id": "scanxiety", "label": "Scan & results anxiety", "desc": "Waiting between tests, recurrence fear", "theme": "scan"},
+    {"id": "survivorship", "label": "Survivorship", "desc": "Life after active treatment", "theme": "survive"},
+    {"id": "caregivers", "label": "Family & caregivers", "desc": "Partners, children, practical support", "theme": "family"},
+]
+
+VALID_COMMUNITY_GROUP_IDS = {g["id"] for g in COMMUNITY_GROUPS}
+
+VALID_COMMUNITY_EMOJI_IDS = {"care", "hug", "strong", "together", "hope", "gentle"}
+
+COMMUNITY_MEMBER_ROLES = {"patient", "caregiver"}
+
+
+def _require_community_member(user: sqlite3.Row) -> None:
+    if user["role"] not in COMMUNITY_MEMBER_ROLES:
+        raise HTTPException(status_code=403, detail="Community is for patients and caregivers only")
+
+
+def _reaction_summaries_for_targets(
+    conn: sqlite3.Connection,
+    target_type: str,
+    target_ids: list[str],
+    user_id: int,
+) -> dict[str, list[dict]]:
+    if not target_ids:
+        return {}
+    placeholders = ",".join("?" * len(target_ids))
+    rows = conn.execute(
+        f"""
+        SELECT target_id, emoji_id, COUNT(*) AS cnt,
+               MAX(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS mine
+        FROM community_reactions
+        WHERE target_type = ? AND target_id IN ({placeholders})
+        GROUP BY target_id, emoji_id
+        """,
+        [user_id, target_type, *target_ids],
+    ).fetchall()
+    out: dict[str, list[dict]] = {tid: [] for tid in target_ids}
+    for r in rows:
+        if r["emoji_id"] not in VALID_COMMUNITY_EMOJI_IDS:
+            continue
+        out.setdefault(r["target_id"], []).append(
+            {
+                "emojiId": r["emoji_id"],
+                "count": int(r["cnt"]),
+                "reactedByMe": bool(r["mine"]),
+            }
+        )
+    return out
+
+
+def _attach_reactions_to_items(
+    conn: sqlite3.Connection,
+    items: list[dict],
+    target_type: str,
+    id_key: str,
+    user_id: int,
+) -> list[dict]:
+    if not items:
+        return items
+    summaries = _reaction_summaries_for_targets(conn, target_type, [i[id_key] for i in items], user_id)
+    for item in items:
+        reactions = summaries.get(item[id_key], [])
+        item["reactions"] = reactions
+        item["totalReactions"] = sum(r["count"] for r in reactions)
+    return items
+
+
+def _toggle_community_reaction(
+    conn: sqlite3.Connection,
+    *,
+    target_type: str,
+    target_id: str,
+    user_id: int,
+    emoji_id: str,
+) -> list[dict]:
+    existing = conn.execute(
+        """
+        SELECT 1 FROM community_reactions
+        WHERE target_type = ? AND target_id = ? AND user_id = ? AND emoji_id = ?
+        """,
+        (target_type, target_id, user_id, emoji_id),
+    ).fetchone()
+    if existing:
+        conn.execute(
+            """
+            DELETE FROM community_reactions
+            WHERE target_type = ? AND target_id = ? AND user_id = ? AND emoji_id = ?
+            """,
+            (target_type, target_id, user_id, emoji_id),
+        )
+    else:
+        conn.execute(
+            """
+            INSERT INTO community_reactions (target_type, target_id, user_id, emoji_id, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (target_type, target_id, user_id, emoji_id, utcnow().isoformat()),
+        )
+    return _reaction_summaries_for_targets(conn, target_type, [target_id], user_id).get(target_id, [])
+
+
 def _community_post_row(r: sqlite3.Row, comment_count: int = 0, *, patient_email: str | None = None) -> dict:
     guidance = _enrich_moderation_guidance(r, parse_moderation_guidance(r))
     out = {
@@ -629,6 +1098,7 @@ def _community_post_row(r: sqlite3.Row, comment_count: int = 0, *, patient_email
         "patientMessage": guidance["patientMessage"],
         "createdAt": r["created_at"],
         "commentCount": comment_count,
+        "groupId": r["group_id"] if "group_id" in r.keys() else "survivorship",
     }
     if patient_email is not None:
         out["patientEmail"] = patient_email
@@ -654,28 +1124,122 @@ def _community_comment_row(r: sqlite3.Row, *, patient_email: str | None = None) 
     return out
 
 
-@app.get("/api/community/posts")
-def list_community_posts(user: sqlite3.Row = Depends(get_current_user)) -> list[dict]:
+@app.get("/api/community/groups")
+def list_community_groups(user: sqlite3.Row = Depends(get_current_user)) -> dict:
     with get_db() as conn:
-        rows = conn.execute(
+        joined_rows = conn.execute(
+            "SELECT group_id FROM community_group_memberships WHERE user_id = ?",
+            (user["id"],),
+        ).fetchall()
+        joined = {r["group_id"] for r in joined_rows}
+        counts = {
+            r["group_id"]: r["n"]
+            for r in conn.execute(
+                """
+                SELECT group_id, COUNT(*) AS n FROM community_group_memberships
+                GROUP BY group_id
+                """
+            ).fetchall()
+        }
+    groups = []
+    for g in COMMUNITY_GROUPS:
+        groups.append(
+            {
+                **g,
+                "memberCount": counts.get(g["id"], 0),
+                "joined": g["id"] in joined,
+            }
+        )
+    return {"groups": groups, "joinedGroupIds": sorted(joined)}
+
+
+@app.post("/api/community/groups/{group_id}/join")
+def join_community_group(group_id: str, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    _require_community_member(user)
+    if group_id not in VALID_COMMUNITY_GROUP_IDS:
+        raise HTTPException(status_code=404, detail="Unknown group")
+    with get_db() as conn:
+        conn.execute(
             """
+            INSERT OR IGNORE INTO community_group_memberships (user_id, group_id, joined_at)
+            VALUES (?, ?, ?)
+            """,
+            (user["id"], group_id, utcnow().isoformat()),
+        )
+        joined = [
+            r["group_id"]
+            for r in conn.execute(
+                "SELECT group_id FROM community_group_memberships WHERE user_id = ?",
+                (user["id"],),
+            ).fetchall()
+        ]
+    return {"ok": True, "joinedGroupIds": joined}
+
+
+@app.delete("/api/community/groups/{group_id}/join")
+def leave_community_group(group_id: str, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    _require_community_member(user)
+    if group_id not in VALID_COMMUNITY_GROUP_IDS:
+        raise HTTPException(status_code=404, detail="Unknown group")
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM community_group_memberships WHERE user_id = ? AND group_id = ?",
+            (user["id"], group_id),
+        )
+        joined = [
+            r["group_id"]
+            for r in conn.execute(
+                "SELECT group_id FROM community_group_memberships WHERE user_id = ?",
+                (user["id"],),
+            ).fetchall()
+        ]
+    return {"ok": True, "joinedGroupIds": joined}
+
+
+@app.get("/api/community/posts")
+def list_community_posts(
+    group_id: str | None = None,
+    user: sqlite3.Row = Depends(get_current_user),
+) -> list[dict]:
+    with get_db() as conn:
+        if group_id:
+            if group_id not in VALID_COMMUNITY_GROUP_IDS:
+                raise HTTPException(status_code=400, detail="Unknown group")
+            where = "p.status = 'approved' AND p.group_id = ?"
+            params: list = [group_id]
+        else:
+            joined = [
+                r["group_id"]
+                for r in conn.execute(
+                    "SELECT group_id FROM community_group_memberships WHERE user_id = ?",
+                    (user["id"],),
+                ).fetchall()
+            ]
+            if not joined:
+                return []
+            placeholders = ",".join("?" * len(joined))
+            where = f"p.status = 'approved' AND p.group_id IN ({placeholders})"
+            params = joined
+        rows = conn.execute(
+            f"""
             SELECT p.*, (
               SELECT COUNT(*) FROM community_comments c
               WHERE c.post_id = p.id AND c.status = 'approved'
             ) AS cc
             FROM community_posts p
-            WHERE p.status = 'approved'
+            WHERE {where}
             ORDER BY p.created_at DESC
             LIMIT 100
-            """
+            """,
+            params,
         ).fetchall()
-    return [_community_post_row(r, int(r["cc"])) for r in rows]
+        items = [_community_post_row(r, int(r["cc"])) for r in rows]
+        return _attach_reactions_to_items(conn, items, "post", "id", user["id"])
 
 
 @app.get("/api/community/posts/mine")
 def list_my_community_posts(user: sqlite3.Row = Depends(get_current_user)) -> list[dict]:
-    if user["role"] != "patient":
-        raise HTTPException(status_code=403, detail="Patients only")
+    _require_community_member(user)
     with get_db() as conn:
         rows = conn.execute(
             """
@@ -685,25 +1249,33 @@ def list_my_community_posts(user: sqlite3.Row = Depends(get_current_user)) -> li
             """,
             (user["id"],),
         ).fetchall()
-    return [_community_post_row(r, 0) for r in rows]
+        items = [_community_post_row(r, 0) for r in rows]
+        return _attach_reactions_to_items(conn, items, "post", "id", user["id"])
 
 
 @app.post("/api/community/posts")
-def create_community_post(body: CommunityBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
-    if user["role"] != "patient":
-        raise HTTPException(status_code=403, detail="Patients only")
+def create_community_post(body: CommunityPostBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    _require_community_member(user)
+    if body.group_id not in VALID_COMMUNITY_GROUP_IDS:
+        raise HTTPException(status_code=400, detail="Unknown group")
     text = body.body.strip()
     mod = moderate_community_text(text, "post")
     status = "approved" if mod["approved"] else "rejected"
     pid = str(uuid.uuid4())
     created = utcnow().isoformat()
     with get_db() as conn:
+        member = conn.execute(
+            "SELECT 1 FROM community_group_memberships WHERE user_id = ? AND group_id = ?",
+            (user["id"], body.group_id),
+        ).fetchone()
+        if member is None:
+            raise HTTPException(status_code=403, detail="Join this group before posting")
         conn.execute(
             """
             INSERT INTO community_posts
             (id, author_user_id, author_display, body, status, moderation_reason, moderation_flags_json,
-             moderation_guidance_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             moderation_guidance_json, group_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 pid,
@@ -714,6 +1286,7 @@ def create_community_post(body: CommunityBody, user: sqlite3.Row = Depends(get_c
                 mod["reason"],
                 json.dumps(mod.get("flags") or []),
                 moderation_guidance_json(mod),
+                body.group_id,
                 created,
             ),
         )
@@ -732,15 +1305,57 @@ def list_post_comments(post_id: str, user: sqlite3.Row = Depends(get_current_use
             """,
             (post_id,),
         ).fetchall()
-    return [_community_comment_row(r) for r in rows]
+        items = [_community_comment_row(r) for r in rows]
+        return _attach_reactions_to_items(conn, items, "comment", "id", user["id"])
+
+
+@app.post("/api/community/posts/{post_id}/reactions")
+def toggle_post_reaction(
+    post_id: str, body: CommunityReactionBody, user: sqlite3.Row = Depends(get_current_user)
+) -> dict:
+    _require_community_member(user)
+    if body.emoji_id not in VALID_COMMUNITY_EMOJI_IDS:
+        raise HTTPException(status_code=400, detail="Unknown reaction")
+    with get_db() as conn:
+        post = conn.execute(
+            "SELECT id FROM community_posts WHERE id = ? AND status = 'approved'", (post_id,)
+        ).fetchone()
+        if post is None:
+            raise HTTPException(status_code=404, detail="Post not found")
+        reactions = _toggle_community_reaction(
+            conn, target_type="post", target_id=post_id, user_id=user["id"], emoji_id=body.emoji_id
+        )
+    return {"reactions": reactions, "totalReactions": sum(r["count"] for r in reactions)}
+
+
+@app.post("/api/community/comments/{comment_id}/reactions")
+def toggle_comment_reaction(
+    comment_id: str, body: CommunityReactionBody, user: sqlite3.Row = Depends(get_current_user)
+) -> dict:
+    _require_community_member(user)
+    if body.emoji_id not in VALID_COMMUNITY_EMOJI_IDS:
+        raise HTTPException(status_code=400, detail="Unknown reaction")
+    with get_db() as conn:
+        comment = conn.execute(
+            "SELECT id FROM community_comments WHERE id = ? AND status = 'approved'", (comment_id,)
+        ).fetchone()
+        if comment is None:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        reactions = _toggle_community_reaction(
+            conn,
+            target_type="comment",
+            target_id=comment_id,
+            user_id=user["id"],
+            emoji_id=body.emoji_id,
+        )
+    return {"reactions": reactions, "totalReactions": sum(r["count"] for r in reactions)}
 
 
 @app.post("/api/community/posts/{post_id}/comments")
 def create_post_comment(
     post_id: str, body: CommunityBody, user: sqlite3.Row = Depends(get_current_user)
 ) -> dict:
-    if user["role"] != "patient":
-        raise HTTPException(status_code=403, detail="Patients only")
+    _require_community_member(user)
     text = body.body.strip()
     with get_db() as conn:
         post = conn.execute(
@@ -1034,10 +1649,11 @@ def link_patient(body: LinkBody, user: sqlite3.Row = Depends(get_current_user)) 
 
 
 @app.post("/api/caregiver/links")
-def caregiver_link_patient(body: LinkBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+def caregiver_link_patient(body: CaregiverLinkBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
     if user["role"] != "caregiver":
         raise HTTPException(status_code=403, detail="Only caregivers can link patients")
     p_email = slug_email(str(body.patient_email))
+    relationship = body.relationship if body.relationship in ("partner", "child", "other") else "other"
     with get_db() as conn:
         prow = conn.execute(
             "SELECT id, role FROM users WHERE email = ?", (p_email,)
@@ -1048,12 +1664,13 @@ def caregiver_link_patient(body: LinkBody, user: sqlite3.Row = Depends(get_curre
             raise HTTPException(status_code=400, detail="Target user is not a patient account")
         conn.execute(
             """
-            INSERT OR IGNORE INTO caregiver_patient_links (caregiver_user_id, patient_user_id, created_at)
-            VALUES (?, ?, ?)
+            INSERT INTO caregiver_patient_links (caregiver_user_id, patient_user_id, created_at, relationship)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(caregiver_user_id, patient_user_id) DO UPDATE SET relationship = excluded.relationship
             """,
-            (user["id"], prow["id"], utcnow().isoformat()),
+            (user["id"], prow["id"], utcnow().isoformat(), relationship),
         )
-    return {"ok": True, "patient_email": p_email, "patient_user_id": prow["id"]}
+    return {"ok": True, "patient_email": p_email, "patient_user_id": prow["id"], "relationship": relationship}
 
 
 @app.get("/api/caregiver/patients")
@@ -1063,7 +1680,9 @@ def caregiver_patients(user: sqlite3.Row = Depends(get_current_user)) -> list[di
     with get_db() as conn:
         rows = conn.execute(
             """
-            SELECT u.id AS patient_id, u.email AS patient_email, u.share_with_caregiver
+            SELECT u.id AS patient_id, u.email AS patient_email, u.display_name,
+                   u.contact_phone, u.share_with_caregiver, u.share_with_partner, u.share_with_children,
+                   l.relationship
             FROM caregiver_patient_links l
             JOIN users u ON u.id = l.patient_user_id
             WHERE l.caregiver_user_id = ?
@@ -1071,20 +1690,30 @@ def caregiver_patients(user: sqlite3.Row = Depends(get_current_user)) -> list[di
             """,
             (user["id"],),
         ).fetchall()
-    return [
-        {
-            "patient_id": r["patient_id"],
-            "patient_email": r["patient_email"],
-            "share_with_caregiver": bool(r["share_with_caregiver"]),
-        }
-        for r in rows
-    ]
+    out = []
+    for r in rows:
+        rel = _caregiver_relationship(r)
+        out.append(
+            {
+                "patient_id": r["patient_id"],
+                "patient_email": r["patient_email"],
+                "display_name": r["display_name"],
+                "phone": r["contact_phone"] or None,
+                "relationship": rel,
+                "share_with_partner": bool(int(r["share_with_partner"] or 0)),
+                "share_with_children": bool(int(r["share_with_children"] or 0)),
+                "share_with_caregiver": _patient_sharing_enabled_for_caregiver(r, rel),
+                "sharing_enabled": _patient_sharing_enabled_for_caregiver(r, rel),
+            }
+        )
+    return out
 
 
 def _linked_caregiver_patient_row(conn: sqlite3.Connection, caregiver_id: int, email: str) -> sqlite3.Row | None:
     return conn.execute(
         """
-        SELECT u.id, u.email, u.share_with_caregiver, u.display_name
+        SELECT u.id, u.email, u.share_with_caregiver, u.share_with_partner, u.share_with_children,
+               u.display_name, l.relationship
         FROM caregiver_patient_links l
         JOIN users u ON u.id = l.patient_user_id
         WHERE l.caregiver_user_id = ? AND u.email = ?
@@ -1102,18 +1731,93 @@ def caregiver_between_visit(patient_email: str, user: sqlite3.Row = Depends(get_
         prow = _linked_caregiver_patient_row(conn, user["id"], email)
         if prow is None:
             raise HTTPException(status_code=404, detail="Patient not linked")
-        if not prow["share_with_caregiver"]:
-            raise HTTPException(status_code=403, detail="Patient has not enabled caregiver sharing")
+        rel = _caregiver_relationship(prow)
+        if not _patient_sharing_enabled_for_caregiver(prow, rel):
+            detail = (
+                "Patient has not enabled sharing with adult children"
+                if rel == "child"
+                else "Patient has not enabled sharing with partner or spouse"
+            )
+            raise HTTPException(status_code=403, detail=detail)
         row = conn.execute(
             "SELECT snapshot_json, updated_at FROM between_visit_snapshots WHERE patient_user_id = ?",
             (prow["id"],),
         ).fetchone()
     if row is None:
-        return {"snapshot": {}, "updatedAt": None, "patientDisplayName": prow["display_name"]}
+        return {"snapshot": {}, "updatedAt": None, "patientDisplayName": prow["display_name"], "relationship": rel}
+    snapshot = _filter_snapshot_for_caregiver(json.loads(row["snapshot_json"]), rel)
+    return {
+        "snapshot": snapshot,
+        "updatedAt": row["updated_at"],
+        "patientDisplayName": prow["display_name"],
+        "relationship": rel,
+    }
+
+
+@app.get("/api/caregiver/patients/{patient_email}/direct-messages")
+def caregiver_patient_direct_messages(
+    patient_email: str, user: sqlite3.Row = Depends(get_current_user)
+) -> dict:
+    if user["role"] != "caregiver":
+        raise HTTPException(status_code=403, detail="Caregivers only")
+    email = slug_email(patient_email)
+    with get_db() as conn:
+        prow = _linked_caregiver_patient_row(conn, user["id"], email)
+        if prow is None:
+            raise HTTPException(status_code=404, detail="Patient not linked")
+        messages = _list_direct_messages(conn, prow["id"], "caregiver")
+    return {"linked": True, "messages": messages}
+
+
+@app.post("/api/caregiver/patients/{patient_email}/direct-messages")
+def caregiver_send_direct_message(
+    patient_email: str, body: DirectMessageBody, user: sqlite3.Row = Depends(get_current_user)
+) -> dict:
+    if user["role"] != "caregiver":
+        raise HTTPException(status_code=403, detail="Caregivers only")
+    email = slug_email(patient_email)
+    with get_db() as conn:
+        prow = _linked_caregiver_patient_row(conn, user["id"], email)
+        if prow is None:
+            raise HTTPException(status_code=404, detail="Patient not linked")
+        msg = _insert_direct_message(
+            conn,
+            patient_user_id=prow["id"],
+            channel="caregiver",
+            sender_role="caregiver",
+            sender_user_id=user["id"],
+            text=body.text,
+            urgent=body.urgent,
+        )
+    return msg
+
+
+@app.get("/api/doctor/patients/{patient_email}/between-visit")
+def doctor_between_visit(patient_email: str, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "doctor":
+        raise HTTPException(status_code=403, detail="Doctors only")
+    email = slug_email(patient_email)
+    with get_db() as conn:
+        prow = _linked_patient_row(conn, user["id"], email)
+        if prow is None:
+            raise HTTPException(status_code=404, detail="Patient not linked")
+        row = conn.execute(
+            "SELECT snapshot_json, updated_at FROM between_visit_snapshots WHERE patient_user_id = ?",
+            (prow["id"],),
+        ).fetchone()
+        display_row = conn.execute(
+            "SELECT display_name FROM users WHERE id = ?", (prow["id"],)
+        ).fetchone()
+    if row is None:
+        return {
+            "snapshot": {},
+            "updatedAt": None,
+            "patientDisplayName": display_row["display_name"] if display_row else "",
+        }
     return {
         "snapshot": json.loads(row["snapshot_json"]),
         "updatedAt": row["updated_at"],
-        "patientDisplayName": prow["display_name"],
+        "patientDisplayName": display_row["display_name"] if display_row else "",
     }
 
 
@@ -1124,7 +1828,8 @@ def doctor_patients(user: sqlite3.Row = Depends(get_current_user)) -> list[dict]
     with get_db() as conn:
         rows = conn.execute(
             """
-            SELECT u.id AS patient_id, u.email AS patient_email
+            SELECT u.id AS patient_id, u.email AS patient_email, u.display_name,
+                   u.share_chat_with_doctor
             FROM doctor_patient_links l
             JOIN users u ON u.id = l.patient_user_id
             WHERE l.doctor_user_id = ?
@@ -1132,7 +1837,15 @@ def doctor_patients(user: sqlite3.Row = Depends(get_current_user)) -> list[dict]
             """,
             (user["id"],),
         ).fetchall()
-    return [{"patient_id": r["patient_id"], "patient_email": r["patient_email"]} for r in rows]
+    return [
+        {
+            "patient_id": r["patient_id"],
+            "patient_email": r["patient_email"],
+            "display_name": r["display_name"],
+            "share_chat_with_doctor": bool(r["share_chat_with_doctor"]),
+        }
+        for r in rows
+    ]
 
 
 def _linked_patient_row(conn: sqlite3.Connection, doctor_id: int, email: str) -> sqlite3.Row | None:
@@ -1174,6 +1887,42 @@ def doctor_patient_chat(patient_email: str, user: sqlite3.Row = Depends(get_curr
         "consent": True,
         "messages": [_chat_from_row(r) for r in rows],
     }
+
+
+@app.get("/api/doctor/patients/{patient_email}/direct-messages")
+def doctor_patient_direct_messages(patient_email: str, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "doctor":
+        raise HTTPException(status_code=403, detail="Doctors only")
+    email = slug_email(patient_email)
+    with get_db() as conn:
+        prow = _linked_patient_row(conn, user["id"], email)
+        if prow is None:
+            raise HTTPException(status_code=404, detail="Patient not linked")
+        messages = _list_direct_messages(conn, prow["id"], "doctor")
+    return {"linked": True, "messages": messages}
+
+
+@app.post("/api/doctor/patients/{patient_email}/direct-messages")
+def doctor_send_direct_message(
+    patient_email: str, body: DirectMessageBody, user: sqlite3.Row = Depends(get_current_user)
+) -> dict:
+    if user["role"] != "doctor":
+        raise HTTPException(status_code=403, detail="Doctors only")
+    email = slug_email(patient_email)
+    with get_db() as conn:
+        prow = _linked_patient_row(conn, user["id"], email)
+        if prow is None:
+            raise HTTPException(status_code=404, detail="Patient not linked")
+        msg = _insert_direct_message(
+            conn,
+            patient_user_id=prow["id"],
+            channel="doctor",
+            sender_role="doctor",
+            sender_user_id=user["id"],
+            text=body.text,
+            urgent=body.urgent,
+        )
+    return msg
 
 
 @app.get("/api/doctor/patients/{patient_email}/submissions")

@@ -70,6 +70,10 @@ export function buildVisitBrief(patientId, opts = {}) {
     }
   }
 
+  if (r.bodyImage === "hard" || r.bodyImage === "some") {
+    parts.push("Body image or identity since treatment has been emotionally difficult — I would like support or referrals, not reassurance alone.");
+  }
+
   const questions = data.visitQuestions.slice(0, 8);
   if (questions.length) {
     parts.push("");

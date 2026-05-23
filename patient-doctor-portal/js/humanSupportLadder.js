@@ -16,6 +16,16 @@ const PROFESSIONAL_SECTIONS = [
     ],
   },
   {
+    id: "bodyimage",
+    title: "Body image & life after surgery",
+    desc: "Grief for how your body looks or feels is common — counsellors, peer groups, and your oncology team can discuss options without judgment.",
+    links: [
+      { label: "Ask your oncology team", external: false, note: "Reconstruction pathways, prosthetics, and referrals vary — your team knows your case." },
+      { label: "BCF programmes & peer support", href: BCF_HOME, external: true, note: "Emotional and peer support — not a substitute for medical decisions about reconstruction." },
+      { label: "Family Explain for partner", href: "#/patient/family", external: false, note: "Draft words so someone close can listen without trying to fix your feelings." },
+    ],
+  },
+  {
     id: "oncology",
     title: "Oncology team & GP",
     desc: "For treatment, side effects, or urgent physical symptoms.",

@@ -1,0 +1,21 @@
+{
+  "name": "hearher-portal",
+  "private": true,
+  "version": "1.0.0",
+  "description": "HearHer patient-caregiver-clinician portal (Capacitor mobile shell)",
+  "scripts": {
+    "cap:sync": "npx cap sync",
+    "cap:open:ios": "npx cap open ios",
+    "cap:open:android": "npx cap open android",
+    "cap:run:ios": "npx cap run ios",
+    "cap:run:android": "npx cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

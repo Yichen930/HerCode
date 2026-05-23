@@ -114,6 +114,7 @@ export function linkPatient(doctorId, patientEmail) {
     cur.push(email);
     localStorage.setItem(key, JSON.stringify(cur));
   }
+  setPatientDoctorLink(email, doctorId);
   return { ok: true, patientId: email };
 }
 
@@ -162,16 +163,87 @@ function caregiverConsentKey(patientId) {
   return `${NS}:patient:${patientId}:shareWithCaregiver`;
 }
 
+function partnerConsentKey(patientId) {
+  return `${NS}:patient:${patientId}:shareWithPartner`;
+}
+
+function childrenConsentKey(patientId) {
+  return `${NS}:patient:${patientId}:shareWithChildren`;
+}
+
+function syncLegacyCaregiverConsent(patientId) {
+  const any = getSharePartnerConsent(patientId) || getShareChildrenConsent(patientId);
+  localStorage.setItem(caregiverConsentKey(patientId), any ? "1" : "0");
+}
+
+export function getSharePartnerConsent(patientId) {
+  const key = partnerConsentKey(patientId);
+  if (localStorage.getItem(key) == null && localStorage.getItem(caregiverConsentKey(patientId)) === "1") {
+    return true;
+  }
+  return localStorage.getItem(key) === "1";
+}
+
+export function getShareChildrenConsent(patientId) {
+  const key = childrenConsentKey(patientId);
+  if (localStorage.getItem(key) == null && localStorage.getItem(caregiverConsentKey(patientId)) === "1") {
+    return true;
+  }
+  return localStorage.getItem(key) === "1";
+}
+
 export function getShareCaregiverConsent(patientId) {
-  return localStorage.getItem(caregiverConsentKey(patientId)) === "1";
+  return getSharePartnerConsent(patientId) || getShareChildrenConsent(patientId);
+}
+
+export function setSharePartnerConsent(patientId, enabled) {
+  localStorage.setItem(partnerConsentKey(patientId), enabled ? "1" : "0");
+  syncLegacyCaregiverConsent(patientId);
+}
+
+export function setShareChildrenConsent(patientId, enabled) {
+  localStorage.setItem(childrenConsentKey(patientId), enabled ? "1" : "0");
+  syncLegacyCaregiverConsent(patientId);
 }
 
 export function setShareCaregiverConsent(patientId, enabled) {
-  localStorage.setItem(caregiverConsentKey(patientId), enabled ? "1" : "0");
+  setSharePartnerConsent(patientId, enabled);
+  setShareChildrenConsent(patientId, enabled);
 }
 
 export function caregiverLinksKey(caregiverId) {
   return `${NS}:caregiver:${caregiverId}:linkedPatients`;
+}
+
+function caregiverLinkMetaKey(caregiverId) {
+  return `${NS}:caregiver:${caregiverId}:linkMeta`;
+}
+
+export function getCaregiverLinkRelationship(caregiverId, patientEmail) {
+  try {
+    const raw = localStorage.getItem(caregiverLinkMetaKey(caregiverId));
+    const meta = raw ? JSON.parse(raw) : {};
+    const rel = meta[slugifyEmail(patientEmail)];
+    return rel === "partner" || rel === "child" ? rel : "other";
+  } catch {
+    return "other";
+  }
+}
+
+export function setCaregiverLinkRelationship(caregiverId, patientEmail, relationship) {
+  const rel = relationship === "partner" || relationship === "child" ? relationship : "other";
+  try {
+    const raw = localStorage.getItem(caregiverLinkMetaKey(caregiverId));
+    const meta = raw ? JSON.parse(raw) : {};
+    meta[slugifyEmail(patientEmail)] = rel;
+    localStorage.setItem(caregiverLinkMetaKey(caregiverId), JSON.stringify(meta));
+  } catch {
+    localStorage.setItem(
+      caregiverLinkMetaKey(caregiverId),
+      JSON.stringify({ [slugifyEmail(patientEmail)]: rel })
+    );
+  }
+  return rel;
 }
 
 export function listCaregiverLinkedPatientIds(caregiverId) {
@@ -185,7 +257,7 @@ export function listCaregiverLinkedPatientIds(caregiverId) {
   }
 }
 
-export function linkCaregiverPatient(caregiverId, patientEmail) {
+export function linkCaregiverPatient(caregiverId, patientEmail, relationship = "other") {
   const email = (patientEmail || "").trim().toLowerCase();
   if (!email) return { ok: false, error: "Patient email is required." };
   const cur = listCaregiverLinkedPatientIds(caregiverId);
@@ -193,7 +265,69 @@ export function linkCaregiverPatient(caregiverId, patientEmail) {
     cur.push(email);
     localStorage.setItem(caregiverLinksKey(caregiverId), JSON.stringify(cur));
   }
-  return { ok: true, patientId: email };
+  setCaregiverLinkRelationship(caregiverId, email, relationship);
+  addPatientCaregiverLink(email, caregiverId);
+  return { ok: true, patientId: email, relationship: getCaregiverLinkRelationship(caregiverId, email) };
+}
+
+function patientDoctorLinkKey(patientEmail) {
+  return `${NS}:patient:${patientEmail}:linkedDoctor`;
+}
+
+function patientCaregiverLinksKey(patientEmail) {
+  return `${NS}:patient:${patientEmail}:linkedCaregivers`;
+}
+
+export function setPatientDoctorLink(patientEmail, doctorEmail) {
+  localStorage.setItem(patientDoctorLinkKey(slugifyEmail(patientEmail)), slugifyEmail(doctorEmail));
+}
+
+export function getPatientDoctorLink(patientEmail) {
+  return localStorage.getItem(patientDoctorLinkKey(slugifyEmail(patientEmail))) || null;
+}
+
+export function addPatientCaregiverLink(patientEmail, caregiverEmail) {
+  const email = slugifyEmail(patientEmail);
+  const cg = slugifyEmail(caregiverEmail);
+  const cur = listPatientCaregiverLinks(email);
+  if (!cur.includes(cg)) {
+    cur.push(cg);
+    localStorage.setItem(patientCaregiverLinksKey(email), JSON.stringify(cur));
+  }
+}
+
+export function listPatientCaregiverLinks(patientEmail) {
+  const raw = localStorage.getItem(patientCaregiverLinksKey(slugifyEmail(patientEmail)));
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function directMessagesKey(patientEmail, channel) {
+  return `${NS}:patient:${slugifyEmail(patientEmail)}:direct:${channel}`;
+}
+
+/** @returns {Array<object>} */
+export function listDirectMessages(patientEmail, channel) {
+  const raw = localStorage.getItem(directMessagesKey(patientEmail, channel));
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addDirectMessage(patientEmail, channel, message) {
+  const list = listDirectMessages(patientEmail, channel);
+  list.push(message);
+  localStorage.setItem(directMessagesKey(patientEmail, channel), JSON.stringify(list));
+  return message;
 }
 
 function clinicalRecordsKey(patientId) {

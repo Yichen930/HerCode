@@ -16,11 +16,23 @@ import {
   setSession as setLocalSession,
   setShareChatConsent,
   setShareCaregiverConsent,
+  setSharePartnerConsent,
+  setShareChildrenConsent,
+  getSharePartnerConsent,
+  getShareChildrenConsent,
+  getCaregiverLinkRelationship,
+  setCaregiverLinkRelationship,
   slugifyEmail,
   addChatMessage as localAddChatMessage,
   clearChatMessages,
   listClinicalRecords,
   addClinicalRecord,
+  listDirectMessages,
+  addDirectMessage,
+  getPatientDoctorLink,
+  listPatientCaregiverLinks,
+  setPatientDoctorLink,
+  addPatientCaregiverLink,
 } from "./storage.js";
 import { loadBetweenVisit } from "./betweenVisitStore.js";
 
@@ -44,6 +56,8 @@ function mapApiUser(user) {
     caregiverId: email,
     shareChatWithDoctor: Boolean(user.share_chat_with_doctor),
     shareWithCaregiver: Boolean(user.share_with_caregiver),
+    shareWithPartner: Boolean(user.share_with_partner ?? user.share_with_caregiver),
+    shareWithChildren: Boolean(user.share_with_children ?? user.share_with_caregiver),
   };
 }
 
@@ -192,7 +206,13 @@ export async function apiLinkPatient(patientEmail) {
 }
 
 export async function linkPatientUnified(session, patientEmail) {
-  if (useApi) return apiLinkPatient(patientEmail);
+  if (useApi) {
+    const res = await apiLinkPatient(patientEmail);
+    if (res.ok) {
+      setPatientDoctorLink(patientEmail, session.doctorId || session.email || "");
+    }
+    return res;
+  }
   return linkPatient(session.doctorId, patientEmail);
 }
 
@@ -280,17 +300,21 @@ export function getCaregiverConsentForPatient(patientEmail) {
   return getShareCaregiverConsent(slugifyEmail(patientEmail));
 }
 
-export async function setCaregiverConsentUnified(session, enabled) {
+export async function setCaregiverConsentUnified(session, { partner, children }) {
   if (!session || session.role !== "patient") return;
   if (useApi) {
     const res = await backend.apiFetch("/me/caregiver-consent", {
       method: "PATCH",
-      body: JSON.stringify({ share_with_caregiver: enabled }),
+      body: JSON.stringify({
+        share_with_partner: Boolean(partner),
+        share_with_children: Boolean(children),
+      }),
     });
     cachedApiUser = mapApiUser(res.user);
     return;
   }
-  setShareCaregiverConsent(session.patientId, enabled);
+  setSharePartnerConsent(session.patientId, Boolean(partner));
+  setShareChildrenConsent(session.patientId, Boolean(children));
 }
 
 export async function syncBetweenVisitSnapshot(session) {
@@ -310,32 +334,49 @@ export async function syncBetweenVisitSnapshot(session) {
 
 export async function fetchCaregiverPatients() {
   if (!useApi) {
-    return listCaregiverLinkedPatientIds(getLocalSession().caregiverId || getLocalSession().email).map(
-      (email) => ({ patient_email: email })
-    );
+    const cgId = getLocalSession().caregiverId || getLocalSession().email;
+    return listCaregiverLinkedPatientIds(cgId).map((email) => ({
+      patient_email: email,
+      relationship: getCaregiverLinkRelationship(cgId, email),
+      share_with_partner: getSharePartnerConsent(email),
+      share_with_children: getShareChildrenConsent(email),
+    }));
   }
   return await backend.apiFetch("/caregiver/patients");
 }
 
-export async function linkCaregiverPatientUnified(session, patientEmail) {
+export async function linkCaregiverPatientUnified(session, patientEmail, relationship = "other") {
+  const rel = relationship === "partner" || relationship === "child" ? relationship : "other";
   if (useApi) {
     try {
       await backend.apiFetch("/caregiver/links", {
         method: "POST",
-        body: JSON.stringify({ patient_email: slugifyEmail(patientEmail) }),
+        body: JSON.stringify({ patient_email: slugifyEmail(patientEmail), relationship: rel }),
       });
-      return { ok: true, patientId: slugifyEmail(patientEmail) };
+      addPatientCaregiverLink(patientEmail, session.caregiverId || session.email || "");
+      setCaregiverLinkRelationship(session.caregiverId || session.email, patientEmail, rel);
+      return { ok: true, patientId: slugifyEmail(patientEmail), relationship: rel };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
-  return linkCaregiverPatient(session.caregiverId || session.email, patientEmail);
+  return linkCaregiverPatient(session.caregiverId || session.email, patientEmail, rel);
 }
 
-export async function fetchCaregiverPatientSnapshot(patientEmail) {
+export async function fetchDoctorPatientSnapshot(patientEmail) {
   const email = slugifyEmail(patientEmail);
+  if (!useApi) return loadBetweenVisit(email);
+  const enc = encodeURIComponent(email);
+  return await backend.apiFetch(`/doctor/patients/${enc}/between-visit`);
+}
+
+export async function fetchCaregiverPatientSnapshot(patientEmail, relationship = "other") {
+  const email = slugifyEmail(patientEmail);
+  const rel = relationship === "child" ? "child" : relationship === "partner" ? "partner" : "other";
   if (!useApi) {
-    if (!getShareCaregiverConsent(email)) return null;
+    const sharingOn =
+      rel === "child" ? getShareChildrenConsent(email) : getSharePartnerConsent(email);
+    if (!sharingOn) return null;
     return loadBetweenVisit(email);
   }
   const enc = encodeURIComponent(email);
@@ -380,5 +421,192 @@ export async function createDoctorClinicalRecord(patientEmail, payload, doctorSe
     recordedAt: new Date().toISOString(),
     doctorDisplay: doctorSession.displayName,
     doctorEmail: doctorSession.doctorId,
+  });
+}
+
+function directMessageContactsFromLocal(patientEmail) {
+  const doctorLink = getPatientDoctorLink(patientEmail);
+  const caregiverLinks = listPatientCaregiverLinks(patientEmail);
+  const caregivers = caregiverLinks.map((email) => ({
+    displayName: email.split("@")[0],
+    email,
+    phone: null,
+    relationship: "other",
+  }));
+  return {
+    hasLinkedDoctor: Boolean(doctorLink),
+    hasLinkedCaregiver: caregivers.length > 0,
+    doctorDisplayName: doctorLink ? doctorLink.split("@")[0] : null,
+    doctorEmail: doctorLink || null,
+    doctorPhone: null,
+    caregiverDisplayNames: caregivers.map((c) => c.displayName),
+    caregiverEmails: caregiverLinks,
+    caregivers,
+    doctor: doctorLink
+      ? { displayName: doctorLink.split("@")[0], email: doctorLink, phone: null }
+      : null,
+  };
+}
+
+function cachePatientLinkHints(patientEmail, contacts) {
+  if (contacts?.doctorEmail) {
+    setPatientDoctorLink(patientEmail, contacts.doctorEmail);
+  }
+  for (const cgEmail of contacts?.caregiverEmails || []) {
+    addPatientCaregiverLink(patientEmail, cgEmail);
+  }
+}
+
+function isMissingDirectMessagesApi(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg === "Not Found" || /\b404\b/.test(msg);
+}
+
+export async function fetchDirectMessageContacts(session) {
+  if (!session || session.role !== "patient") {
+    return {
+      hasLinkedDoctor: false,
+      hasLinkedCaregiver: false,
+      doctorDisplayName: null,
+      caregiverDisplayNames: [],
+    };
+  }
+  const patientEmail = session.patientId || session.email;
+  if (useApi || backend.getApiToken()) {
+    try {
+      const contacts = await backend.apiFetch("/direct-messages/contacts");
+      cachePatientLinkHints(patientEmail, contacts);
+      return contacts;
+    } catch (e) {
+      if (isMissingDirectMessagesApi(e)) {
+        return directMessageContactsFromLocal(patientEmail);
+      }
+      if (useApi) throw e;
+    }
+  }
+  return directMessageContactsFromLocal(patientEmail);
+}
+
+export async function fetchDirectMessagesUnified(session, { channel, patientEmail = "" }) {
+  if (channel !== "doctor" && channel !== "caregiver") {
+    throw new Error("Invalid channel");
+  }
+
+  const email = slugifyEmail(patientEmail || session.patientId || session.email);
+
+  if (useApi || backend.getApiToken()) {
+    try {
+      if (session.role === "patient") {
+        return await backend.apiFetch(`/direct-messages/${channel}`);
+      }
+      const enc = encodeURIComponent(email);
+      if (session.role === "doctor") {
+        return await backend.apiFetch(`/doctor/patients/${enc}/direct-messages`);
+      }
+      if (session.role === "caregiver") {
+        return await backend.apiFetch(`/caregiver/patients/${enc}/direct-messages`);
+      }
+      throw new Error("Unsupported role");
+    } catch (e) {
+      if (isMissingDirectMessagesApi(e) && session.role === "patient") {
+        /* fall through to local handling */
+      } else if (useApi || session.role !== "patient") {
+        throw e;
+      }
+    }
+  }
+
+  if (session.role === "patient") {
+    const linked =
+      channel === "doctor" ? Boolean(getPatientDoctorLink(email)) : listPatientCaregiverLinks(email).length > 0;
+    if (!linked) {
+      const signInEmail = slugifyEmail(session.email || session.patientId || "");
+      return {
+        linked: false,
+        messages: [],
+        message:
+          channel === "doctor"
+            ? `No linked clinician yet. Ask them to link ${signInEmail || "your HearHer sign-in email"} under Link person. If login shows Offline mode, sign in again with Server connected.`
+            : `No linked caregiver yet. They must link ${signInEmail || "your email"} under Link someone. If login shows Offline mode, sign in again with Server connected.`,
+      };
+    }
+    return { linked: true, messages: listDirectMessages(email, channel) };
+  }
+
+  if (session.role === "doctor" && channel === "doctor") {
+    if (!listLinkedPatientIds(session.doctorId).includes(email)) {
+      throw new Error("Patient not linked");
+    }
+    return { linked: true, messages: listDirectMessages(email, channel) };
+  }
+
+  if (session.role === "caregiver" && channel === "caregiver") {
+    const cgId = session.caregiverId || session.email;
+    if (!listCaregiverLinkedPatientIds(cgId).includes(email)) {
+      throw new Error("Patient not linked");
+    }
+    return { linked: true, messages: listDirectMessages(email, channel) };
+  }
+
+  throw new Error("Unsupported role");
+}
+
+export async function sendDirectMessageUnified(session, { channel, patientEmail = "", text, urgent = false }) {
+  const trimmed = (text || "").trim();
+  if (!trimmed) throw new Error("Message is required");
+
+  const email = slugifyEmail(patientEmail || session.patientId || session.email);
+
+  if (useApi || backend.getApiToken()) {
+    const body = { text: trimmed, urgent: Boolean(urgent) };
+    try {
+      if (session.role === "patient") {
+        return await backend.apiFetch(`/direct-messages/${channel}`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+      }
+      const enc = encodeURIComponent(email);
+      if (session.role === "doctor") {
+        return await backend.apiFetch(`/doctor/patients/${enc}/direct-messages`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+      }
+      if (session.role === "caregiver") {
+        return await backend.apiFetch(`/caregiver/patients/${enc}/direct-messages`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+      }
+      throw new Error("Unsupported role");
+    } catch (e) {
+      if (useApi || session.role !== "patient") throw e;
+    }
+  }
+  let senderRole = session.role;
+  let senderDisplayName = session.displayName || session.email || senderRole;
+
+  if (session.role === "patient") {
+    const linked =
+      channel === "doctor" ? Boolean(getPatientDoctorLink(email)) : listPatientCaregiverLinks(email).length > 0;
+    if (!linked) throw new Error("Not linked");
+  } else if (session.role === "doctor") {
+    if (!listLinkedPatientIds(session.doctorId).includes(email)) throw new Error("Patient not linked");
+  } else if (session.role === "caregiver") {
+    const cgId = session.caregiverId || session.email;
+    if (!listCaregiverLinkedPatientIds(cgId).includes(email)) throw new Error("Patient not linked");
+  } else {
+    throw new Error("Unsupported role");
+  }
+
+  return addDirectMessage(email, channel, {
+    id: crypto.randomUUID(),
+    channel,
+    senderRole,
+    senderDisplayName,
+    text: trimmed,
+    urgent: Boolean(urgent),
+    createdAt: new Date().toISOString(),
   });
 }

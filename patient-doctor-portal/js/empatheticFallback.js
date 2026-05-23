@@ -1,99 +1,107 @@
 /**
- * Supportive copy when AI API is unavailable (offline mode or missing OPENAI_API_KEY).
+ * Empathetic support copy when AI is unavailable — breast cancer between-visit focus.
  */
 
 const STEP_REPLIES = {
   emotionalIntro:
-    "Taking time to name feelings is a real step. You do not have to minimize stress to deserve care—both emotional strain and physical symptoms can matter together.",
+    "Anxiety, grief, and fear between oncology appointments are very common — more than many people expect. You do not have to be calm to deserve care.",
   stressLevel: {
     high:
-      "High stress while your body feels “off” is exhausting—and it does not mean your symptoms are fake. You might tell a clinician: “My stress is high, and I am not sure what is causing what anymore.”",
+      "Carrying this much stress while waiting for answers or going through treatment is exhausting. You might tell your team: “My anxiety is high between visits and it is affecting daily life — I need support, not just reassurance.”",
     moderate:
-      "Stress and hormonal symptoms often feed each other. Example phrase: “Some weeks I cope, but symptoms and worry pile up together.”",
+      "Some weeks are harder than others — that pattern matters. Example: “Stress spikes around scan days and I want help managing the wait.”",
     low:
-      "Even if stress feels manageable, your physical symptoms still deserve attention—they are not invalid.",
+      "Even when stress feels manageable, your feelings still count. You can still ask for counselling or peer support before things build up.",
     unsure:
-      "It is fine not to label it. You can say: “I am not sure how stressed I am, but something feels wrong in my body.”",
+      "It is fine not to label it. You could say: “I am not sure how to describe it, but something feels heavy between appointments.”",
   },
   toldJustStress: {
     yes:
-      "Being told it is “just stress” hurts—and it stops many people from getting evaluated for years. You might say: “I was told this was stress, but symptoms persist and I want proper assessment.”",
+      "Being told to stay positive or that it is “just stress” can feel isolating after a cancer diagnosis. You might say: “I still need emotional support and clear answers — my feelings are real even if tests look okay.”",
     sometimes:
-      "Mixed messages are confusing. It is okay to ask: “What else could explain this besides stress?”",
-    no: "I am glad you have not heard that as often. If symptoms persist, you still deserve a thorough look.",
-    unsure: "You can simply ask a clinician to take your concerns seriously regardless of stress levels.",
+      "Mixed messages are confusing when you are already scared. Ask: “What support options exist if fear and grief continue between visits?”",
+    no: "I am glad you have not heard that often. Your emotional needs still deserve space in every visit.",
+    unsure:
+      "You can simply say: “I need my team to take how this affects me emotionally as seriously as the medical plan.”",
   },
   embarrassed: {
     yes:
-      "Many patients feel the same. Clinicians discuss periods, hair, and sex-related health every day. A starter line: “I feel awkward saying this, but…”",
+      "Many people feel awkward discussing emotions, body changes, or intimacy with their oncology team. A starter: “This is hard for me to say, but it has been affecting me…”",
     somewhat:
-      "A little nervousness is normal. You can bring notes or this chat log so you do not have to say everything from memory.",
-    no: "That confidence helps. You can still use this log to make sure nothing gets forgotten.",
+      "A little nervousness is normal. Bring your Visit brief or read from notes — you do not have to perform being okay.",
+    no: "That openness helps. You can still use this space to prepare the one sentence that matters most.",
   },
   emotionalBurden: {
-    fear: "Fear of the unknown is valid. Clinicians can explain step by step what tests mean and what they rule in or out.",
+    fear:
+      "Fear between scan or results days is one of the most shared experiences on this journey. You might say: “Waiting is the hardest part — I need help coping between touchpoints.”",
     dismissed:
-      "Feeling unheard is isolating. Tracking how you feel here is a form of advocacy—you might say: “I have been dealing with this for a long time and I need help understanding it.”",
+      "Feeling rushed or unheard is painful. Try: “I need more than a few minutes to explain how this affects my life and my family.”",
     shame:
-      "Shame often comes from culture, not from you. Body changes and pain are medical topics, not personal failures.",
+      "Body image distress after surgery or treatment is a real grief — not vanity. Clinicians and counsellors hear this often. You might say: “I am struggling with how I see myself since treatment.”",
     burnout:
-      "Carrying this alone is heavy. It is okay to ask for referral or more than one short visit to cover everything.",
+      "Exhaustion — as a patient or caregiver — is not failure. Ask about respite, practical help, or caregiver support programmes.",
     fertility:
-      "Fertility worries can be deeply emotional. You deserve time to ask questions without being rushed.",
+      "Grief for life plans you hoped for is valid. You deserve time with someone who can sit with that — counsellor, social worker, or trusted peer group.",
     other:
-      "Mixed feelings are common. Pick the one or two sentences that feel most true when you see your clinician.",
+      "Mixed feelings are normal. Pick one true sentence for your next visit — you do not need to explain everything at once.",
   },
   emotionalText:
-    "Thank you for putting words to it. Whatever you wrote can be read aloud or handed to your clinician—you do not need perfect phrasing.",
+    "Thank you for putting words to it. What you wrote can go into your Visit brief or be read aloud — imperfect phrasing is still honest.",
   journeyIntro:
-    "You have done the emotional part. Next we focus on your care journey—not repeating a symptom checklist (use Check-in for that).",
+    "You have named some of what you carry. Next: what you want from your care team emotionally — not a medical checklist (Wellness log helps track mood and side effects).",
   concernDuration: {
     months:
-      "A few months of worry is long enough to deserve a visit. Example: “This has been on my mind for several months and I want a plan.”",
+      "Months of worry between touchpoints is long enough to ask for psychosocial support — not only at crisis points.",
     years:
-      "Living with uncertainty for years is exhausting. You might say: “I have had these concerns for years without clear answers.”",
+      "Living with uncertainty for years is exhausting. Saying how long you have carried this helps your team understand.",
     long:
-      "Many people wait a decade before diagnosis. Saying how long you have carried this helps clinicians take it seriously.",
+      "Many people describe years of fear before feeling fully heard. Your timeline matters.",
     recent:
-      "New worries still matter. You do not need years of suffering to book an appointment.",
+      "A recent diagnosis can bring shock and grief that hit in waves — support early can help.",
     unsure:
-      "You can say: “I am not sure when this started, but it has been affecting me.”",
+      "You can say: “I am not sure when this started, but emotionally it has been hard between visits.”",
   },
   careDelay: {
     yes_shame:
-      "Shame delays care for many people—you are not alone. A clinician’s job includes making these topics normal to discuss.",
+      "Shame about body, mood, or “being a burden” delays support for many people — you are not alone. Counsellors specialise in cancer-related distress.",
     yes_time:
-      "Time and access barriers are real. If you get one visit, bring your top concern first (you can draft it in the next question).",
+      "Treatment logistics leave little room for feelings — if you get one opening, lead with emotional impact first.",
     yes_dismissed:
-      "Past dismissal makes it hard to try again. You might say: “I have been discouraged before, but symptoms are still here.”",
-    no: "Good that you are engaged with care. This chat can still help you organize what to say at the next visit.",
-    unsure: "It is okay not to label why you waited. You still deserve evaluation when you are ready.",
+      "Past dismissal makes it hard to try again. You might say: “I have hesitated to ask for emotional support before, but I need it now.”",
+    no: "Reaching out here is already a form of self-support. Visit brief and human help links can strengthen that.",
+    unsure:
+      "It is okay not to know why you waited. You still deserve counselling, groups, or a longer conversation when you are ready.",
   },
   supportNetwork: {
-    partner: "Having someone in your corner helps. They can attend visits with you if you want support.",
-    friends: "Peer support matters. You can also share only what you are comfortable with clinically.",
-    online: "Online communities can help you feel less alone—bring questions from them to a clinician for medical facts.",
+    partner:
+      "A partner can attend visits, hold your hand, or simply listen. Family Explain can help you find words for them.",
+    friends:
+      "Friends can offer practical help on treatment days. You choose how much medical detail to share.",
+    online:
+      "Online peers can reduce isolation — bring medical questions back to your oncology team for facts.",
     alone:
-      "Keeping it to yourself is common and heavy. This log can be something you do not have to say out loud at first.",
+      "Keeping it to yourself is common and heavy. This log, Visit brief, or a counsellor can be a first step without performing strength.",
     clinician:
-      "Being in care is a strength. Use check-in summaries to make visits more efficient between appointments.",
+      "If you already see a counsellor or social worker, bring one sentence from here to deepen that conversation.",
   },
   visitGoal: {
-    answers: "Asking for a clear plan is reasonable. Example: “What are the next steps and what would you rule out?”",
+    answers:
+      "Asking for a clear plan is reasonable. Example: “What should I expect emotionally between this visit and the next?”",
     heard:
-      "Wanting to be heard is valid. You might say: “I need you to understand how much this affects my life.”",
-    tests: "It is fine to ask what tests are for and what happens if results are normal.",
+      "Wanting to be heard is valid. Try: “I need you to understand how much this affects my daily life and relationships.”",
+    tests:
+      "Clarity on timelines can reduce scan anxiety. Ask what each wait means and who to call if fear spikes.",
     options:
-      "Asking about options—not only one treatment—is part of shared decision-making.",
+      "Asking about counselling, support groups, or BCF programmes is part of whole-person care — not extra.",
     unsure:
-      "You can say: “I am not sure what I need yet, but I want to work through it together.”",
+      "You can say: “I am not sure what I need yet, but I do not want to cope alone between visits.”",
   },
   oneThingForDoctor:
-    "That sentence can open the visit. Clinicians often appreciate one clear line about impact before details—use check-in for symptom specifics.",
+    "That one sentence can open the visit. Oncologists often appreciate hearing emotional impact before logistics — save it in Visit brief.",
   checkinBridge:
-    "Check-in is the right place for cycles, pain, and similar fields, plus educational reference scores. This chat log is for feelings and how you want to be treated in care.",
+    "Wellness log tracks mood, sleep, and side effects between visits. Calm & learn has brief exercises. This Support space stays focused on feelings and words you need.",
   welcome:
-    "Welcome. This guided flow is for stress, shame, and visit prep—not a duplicate symptom form. Many people feel awkward talking about periods or body changes; you can skip any question.",
+    "Welcome. This is a private space for fear, grief, body-image worries, and visit prep between oncology appointments. You can skip any question. I am not your counsellor — human support matters too.",
 };
 
 /**
@@ -108,8 +116,8 @@ export function getSupportiveFallback(stepId, userLabel) {
   if (stepId === "welcome") return STEP_REPLIES.welcome;
   if (stepId === "oneThingForDoctor") return STEP_REPLIES.oneThingForDoctor;
   return (
-    "Thank you for sharing. This space is for feelings and advocacy before a visit—not for logging individual symptoms. " +
-    "Use Check-in when you are ready to record cycles, pain, and related details for your clinician."
+    "Thank you for sharing. Many people feel this way between medical touchpoints — you are not failing. " +
+    "Try Visit brief to gather your words, or Find human help for counsellors and BCF programmes."
   );
 }
 
@@ -120,43 +128,66 @@ export function getFreeformFallback(text) {
   const t = (text || "").toLowerCase().trim();
   if (/^(hi|hello|hey|hiya|yo)\b[!?.]*$|^good (morning|afternoon|evening)\b/.test(t)) {
     return (
-      "Hi — glad you reached out. This is a private space for stress, shame, and preparing for a clinician visit—not for diagnosis. " +
-      "What has been on your mind lately? You can also try a starter button above or Check-in when you want a symptom log."
+      "Hi — I am glad you reached out. This is a private space for feelings between oncology visits — not diagnosis or treatment advice. " +
+      "What has been weighing on you? You can use a starter button, continue the guided flow, or open Find human help for counsellors and BCF."
     );
   }
-  if (/stress|anxiet|overwhelm|burnout|pressure|depress|panic|cannot cope|can't cope/.test(t)) {
+  if (/suicid|kill myself|want to die|self.?harm|end my life/.test(t)) {
     return (
-      "Stress and physical symptoms often overlap—one does not cancel the other. " +
-      "You might say: “My stress is high and my body symptoms are affecting daily life—I want both taken seriously.” " +
-      "If you ever feel unable to stay safe, please reach out to urgent support in your area."
+      "I hear how much pain you are in. Please contact emergency services (995 in Singapore) or a crisis line now — you deserve immediate human support. " +
+      "This app cannot keep you safe in a crisis."
     );
   }
-  if (/embarrass|ashamed|awkward|shy|stupid|gross|weird|afraid to say/.test(t)) {
+  if (/stress|anxiet|overwhelm|burnout|pressure|depress|panic|cannot cope|can't cope|scan|result|wait/.test(t)) {
     return (
-      "Feeling embarrassed is very common, especially with periods, hair growth, or sexual health topics. " +
-      "Clinicians discuss these every day. You might start with: “I have been hesitant to mention this, but…” " +
-      "You are not expected to use perfect medical words."
+      "Scan and results anxiety between appointments is one of the most common experiences after breast cancer — it does not mean you are overreacting. " +
+      "You might tell your team: “The wait between tests is affecting my sleep and mood — what support is available?” " +
+      "If fear feels unmanageable, Find human help lists counsellors and BCF programmes."
     );
   }
-  if (/accept|denial|not real|in my head|making it up/.test(t)) {
+  if (/child|kid|daughter|son|mum|mom|mother|parent/.test(t)) {
     return (
-      "Doubting your own symptoms is something many patients describe—especially after years of being told it is “normal.” " +
-      "Tracking patterns in Check-in can help you advocate. A clinician can validate with exams and tests, not guesswork."
+      "Worry about children is so common — and so hard to carry alone. Family Explain has age-appropriate words under “My children.” " +
+      "You might say to your team: “I need help talking to my children without frightening them.” Counsellors can help with this too."
     );
   }
-  if (/pcos|endometri|endo\b|period|cycle|hair|acne|infertil|pelvic/.test(t)) {
+  if (/mastect|reconstruct|body image|mirror|scar|breast|appearance|ugly|feminine|identity/.test(t)) {
     return (
-      "Those sound like topics for your oncology or wellness team — use Wellness log to track mood, sleep, and side effects. In this chat, focus on how the journey affects you emotionally between touchpoints."
+      "Grief for how your body looks or feels after surgery is real medical distress — not vanity. Many women describe the same shame. " +
+      "You might ask your team about reconstruction options, peer support, or a counsellor who specialises in body image after cancer. " +
+      "Find human help links BCF and professional support."
     );
   }
-  if (/chemo|mastect|radiation|oncolog|breast cancer|tumor|scan|metastas/.test(t)) {
+  if (/embarrass|ashamed|awkward|shy|stupid|gross|weird|afraid to say|hard to say/.test(t)) {
     return (
-      "Treatment and scan worries are heavy to carry alone. You might write one sentence you wish your team understood about your emotional impact. Use Visit brief to prepare questions — this chat is not medical advice."
+      "Feeling ashamed or awkward is very common — especially about body, mood, or intimacy after treatment. " +
+      "Clinicians and counsellors hear this often. Start with: “I have been hesitant to bring this up, but…” " +
+      "The Hard to say tab has advocacy phrases you can save as visit questions."
+    );
+  }
+  if (/dismiss|not believe|just stress|stay positive|in my head|making it up|normal/.test(t)) {
+    return (
+      "Being dismissed or told to stay positive after a cancer diagnosis hurts deeply. " +
+      "You might say: “I still need emotional support and clear answers — please do not minimize what I am carrying.” " +
+      "Tracking feelings here is a form of self-advocacy."
+    );
+  }
+  if (/alone|lonely|no one understand|isolated/.test(t)) {
+    return (
+      "Isolation between appointments is widely reported — not a personal failure. Peer community and BCF programmes exist because this journey is hard. " +
+      "Consider one small step: message a linked caregiver, open Calm & learn, or ask your team for a support group referral."
+    );
+  }
+  if (/chemo|radiation|oncolog|breast cancer|tumor|treatment|side effect/.test(t)) {
+    return (
+      "Treatment days and side effects can drain emotional energy as well as physical energy. " +
+      "Wellness log helps track patterns; this chat helps you name what is hardest emotionally. " +
+      "For medical decisions, your oncology team remains essential."
     );
   }
   return (
-    "I hear you. This space is for feelings and visit prep, not diagnosis. " +
-    "Try writing one sentence you wish your doctor understood about your life impact. " +
-    "Use Check-in when you want a symptom summary to bring to an appointment."
+    "I hear you. This space is for feelings and visit prep — not medical advice. " +
+    "Try writing one sentence you wish someone understood about your emotional life right now, then save it in Visit brief. " +
+    "If distress feels heavy, Find human help points to counsellors, BCF, and emergency care."
   );
 }

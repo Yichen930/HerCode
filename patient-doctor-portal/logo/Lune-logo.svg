@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520" role="img" aria-labelledby="luneTitle luneDesc">
+  <title id="luneTitle">Lune</title>
+  <desc id="luneDesc">A quiet light for difficult nights.</desc>
+  <defs>
+    <radialGradient id="bgStars" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#10182e"/>
+      <stop offset="100%" stop-color="#05070a"/>
+    </radialGradient>
+    <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fffef5"/>
+      <stop offset="35%" stop-color="#f2dea0"/>
+      <stop offset="100%" stop-color="#c9a962" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="moonGlow" x1="30%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#faf0d0"/>
+      <stop offset="50%" stop-color="#e8cc88"/>
+      <stop offset="100%" stop-color="#9a7840"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="520" fill="url(#bgStars)" rx="24"/>
+  <circle cx="60" cy="80" r="1" fill="#e8e6f0" opacity="0.35"/>
+  <circle cx="320" cy="120" r="0.8" fill="#e8e6f0" opacity="0.25"/>
+  <circle cx="180" cy="60" r="0.6" fill="#e8e6f0" opacity="0.3"/>
+  <circle cx="340" cy="200" r="0.7" fill="#e8e6f0" opacity="0.2"/>
+  <g transform="translate(200 118)" filter="url(#softGlow)">
+    <path fill="url(#moonGlow)" d="M0-72c-32 0-58 26-58 58s26 58 58 58c-8-11.5-13-25.5-13-40.5S-8-60.5 0-72z"/>
+    <path fill="url(#starGlow)" transform="translate(14 -18)" d="M0-10l2.8 6.5 7 .9-5.1 4.4 1.5 6.8-6.2-3.6-6.2 3.6 1.5-6.8-5.1-4.4 7-.9z"/>
+  </g>
+  <text x="200" y="268" text-anchor="middle" fill="#e5d1b0" font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="52" font-weight="300" letter-spacing="18">LUNE</text>
+  <text x="200" y="318" text-anchor="middle" fill="#c9b896" font-family="'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="300" letter-spacing="0.5">A quiet light for difficult nights.</text>
+</svg>

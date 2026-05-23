@@ -1,4 +1,4 @@
-import { apiFetch } from "./backend.js";
+import { apiFetch, getApiBase } from "./backend.js";
 import { getFreeformFallback, getSupportiveFallback } from "./empatheticFallback.js";
 
 let aiConfiguredCache = null;
@@ -11,7 +11,7 @@ export function getLastAiError() {
 export async function probeAiChat(force = false) {
   if (!force && aiConfiguredCache !== null) return aiConfiguredCache;
   try {
-    const r = await fetch("/api/health");
+    const r = await fetch(`${getApiBase()}/api/health`);
     if (!r.ok) {
       aiConfiguredCache = false;
       return false;

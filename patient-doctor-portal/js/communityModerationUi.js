@@ -1,5 +1,7 @@
 /** Shared UI helpers for community moderation feedback. */
 
+import { renderGroupBadge } from "./communityGroups.js";
+
 /** @typedef {"none"|"comfort"|"see_doctor"|"warning"|"emergency"} GuidanceType */
 
 /**
@@ -144,10 +146,12 @@ export function renderDoctorModItem(item, kind, escapeHtml) {
           }
         </div>`
       : "";
+  const groupBadge = renderGroupBadge(item.groupId || item.group_id || "", escapeHtml);
   return (
     `<div class="mod-item">` +
     `<span class="badge badge-status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>` +
   ` <span class="badge mod-guidance-badge mod-guidance-badge--${escapeHtml(gt)}">${escapeHtml(guidanceTypeLabel(gt))}</span>` +
+    (groupBadge ? `${groupBadge} ` : "") +
     `<strong>${escapeHtml(kind)}</strong> · ${escapeHtml(item.authorDisplay)}${email}` +
     ` · <span class="muted">${escapeHtml(item.createdAt)}</span>` +
     `<p class="mod-item-body">${escapeHtml(item.body)}</p>` +

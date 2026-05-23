@@ -5,6 +5,8 @@ import {
   listLinkedPatientIds,
   listChatMessages,
   getShareChatConsent,
+  getSharePartnerConsent,
+  getShareChildrenConsent,
 } from "./storage.js";
 import { buildPatientSummary } from "./summary.js";
 import { validateCheckinAnswers } from "./checkinValidation.js";
@@ -44,8 +46,9 @@ import { loadBetweenVisit } from "./betweenVisitStore.js";
 
 const DOCTOR_SELECTED_PATIENT_KEY = "hearher.doctor.selectedPatient";
 import { mountPatientChat } from "./patientChatPage.js";
+import { renderMobileTabBar, initPlatform, applyMobileShellClasses } from "./platform.js";
 import { mountLearnPage } from "./learnPage.js";
-import { mountCommunityPage } from "./communityPage.js";
+import { mountLuneApp, isLuneRoute } from "./lune/mountLuneApp.js";
 import {
   renderDoctorModItem,
   normalizeModerationPayload,
@@ -94,7 +97,27 @@ import {
   fetchCaregiverPatients,
   linkCaregiverPatientUnified,
   fetchCaregiverPatientSnapshot,
+  fetchDoctorPatientSnapshot,
+  fetchDirectMessageContacts,
+  fetchDirectMessagesUnified,
+  sendDirectMessageUnified,
 } from "./sessionManager.js";
+import {
+  parseDoctorView,
+  renderDoctorShell,
+  renderDoctorDashboardOverview,
+  renderDoctorBetweenVisitPanel,
+  renderDoctorNoSelection,
+  bindDoctorPatientRail,
+  setDoctorPortalBodyClass,
+} from "./doctorPage.js";
+import {
+  renderDirectChatPanel,
+  renderPatientMessagesPage,
+  renderCaregiverDirectChatPage,
+  bindDirectChatForm,
+  scrollDirectChatToBottom,
+} from "./directMessagesPage.js";
 import {
   downloadServerExportFile,
   exportAllLinkedPatientsCsv,
@@ -117,7 +140,17 @@ function navIsActive(href) {
   if (base === "#/patient/checkin") {
     return hash === "#/patient/checkin" || hash.startsWith("#/patient/checkins");
   }
-  if (base === "#/doctor") return hash === "#/doctor";
+  if (base === "#/patient/community") return hash.startsWith("#/patient/community");
+  if (base === "#/patient/lune") return hash.startsWith("#/patient/lune");
+  if (base === "#/patient/messages") return hash.startsWith("#/patient/messages");
+  if (base === "#/doctor") return hash === "#/doctor" || hash.startsWith("#/doctor/");
+  if (base === "#/caregiver") {
+    return hash === "#/caregiver" || hash.startsWith("#/caregiver?");
+  }
+  if (base === "#/caregiver/community") return hash.startsWith("#/caregiver/community");
+  if (base === "#/caregiver/lune") return hash.startsWith("#/caregiver/lune");
+  if (base === "#/caregiver/chat") return hash.startsWith("#/caregiver/chat");
+  if (base === "#/caregiver/link") return hash.startsWith("#/caregiver/link");
   return hash === base;
 }
 
@@ -166,7 +199,7 @@ function renderPatientQuickActions() {
     { href: "#/patient/chat", title: "Between visits", desc: "Feelings, hard questions, visit prep", featured: true, theme: "support", icon: "support" },
     { href: "#/patient/checkin", title: "Wellness log", desc: "Mood, sleep & side effects between visits", featured: false, theme: "checkin", icon: "checkin" },
     { href: "#/patient/learn", title: "Calm & learn", desc: "Breathing exercises, visit prep & caregiver tips", featured: false, theme: "learn", icon: "learn" },
-    { href: "#/patient/community", title: "Peer support", desc: "Breast cancer community — moderated, not medical advice", featured: false, theme: "community", icon: "community" },
+    { href: "#/patient/lune/witnesses", title: "Peer support", desc: "Lune community — moderated, not medical advice", featured: false, theme: "community", icon: "community" },
   ];
   return `<div class="home-actions">${items
     .map(
@@ -189,24 +222,21 @@ function renderHeader(session) {
       ? [
           navLink("#/patient", "Home"),
           navLink("#/patient/chat", "Support"),
+          navLink("#/patient/messages", "Emergency contacts"),
           navLink("#/patient/find-help", "Find human help"),
           navLink("#/patient/checkin", "Wellness log"),
           navLink("#/patient/learn", "Calm & learn"),
-          navLink("#/patient/community", "Community"),
+          navLink("#/patient/lune/witnesses", "Community"),
           navLink("#/patient/settings", "Privacy"),
         ].join("")
       : "";
   const navDoctor =
     session?.role === "doctor"
-      ? [
-          navLink("#/doctor", "Home"),
-          navLink("#/doctor/link", "Link patient"),
-          navLink("#/doctor/moderation", "Safety log"),
-        ].join("")
+      ? [navLink("#/doctor", "Workspace")].join("")
       : "";
   const navCaregiver =
     session?.role === "caregiver"
-      ? [navLink("#/caregiver", "Home"), navLink("#/caregiver/link", "Link patient")].join("")
+      ? [navLink("#/caregiver", "Home"), navLink("#/caregiver/lune/witnesses", "Community"), navLink("#/caregiver/chat", "Emergency contacts"), navLink("#/caregiver/link", "Link patient")].join("")
       : "";
   return `
   <header class="app-header">
@@ -216,7 +246,8 @@ function renderHeader(session) {
       ${session ? navPatient + navDoctor + navCaregiver : ""}
       ${session ? `<button class="btn btn-ghost btn-sm" type="button" id="btnLogout">Log out</button>` : navLink("#/login", "Sign in")}
     </nav>
-  </header>`;
+  </header>
+  ${renderMobileTabBar(session)}`;
 }
 
 function requireSession(role) {
@@ -266,10 +297,9 @@ function renderLogin(root) {
   root.innerHTML = `
     <div class="login-page">
       <div class="login-shell">
-        <section class="login-brand" aria-label="About HearHer">
+        <section class="login-brand" aria-label="About ${escapeHtml(PRODUCT_NAME)}">
           <div class="login-brand-inner">
             ${renderBrandLockup({ size: "login" })}
-            <p class="login-brand-tagline">${escapeHtml(PRODUCT_TAGLINE)}</p>
             <p class="login-portals-label">Choose your portal</p>
             <div class="login-portals" role="group" aria-label="Choose portal">
               <button type="button" class="login-portal-card is-active" data-role="patient">
@@ -364,18 +394,13 @@ function renderLogin(root) {
     document.querySelectorAll(".login-role-btn, .login-portal-card").forEach((el) => {
       el.classList.toggle("is-active", el.getAttribute("data-role") === r);
     });
-    const labels = {
-      patient: "Patient portal",
-      caregiver: "Caregiver portal",
-      doctor: "Clinician portal",
-    };
     const subs = {
       patient: "Sign in to reflect and prepare between clinic visits.",
       caregiver: "Sign in to read shared between-visit summaries (with patient consent).",
       doctor: "Sign in to review linked patients and reference materials.",
     };
     if (panelTitle && authMode === "signin") {
-      panelTitle.textContent = labels[r] || "Sign in";
+      panelTitle.textContent = "Sign in";
     }
     if (panelSub && authMode === "signin") {
       panelSub.textContent = subs[r] || panelSub.textContent;
@@ -399,13 +424,7 @@ function renderLogin(root) {
     if (displayField) displayField.hidden = !registering;
     if (displayInput) displayInput.required = registering;
     if (panelTitle) {
-      panelTitle.textContent = registering
-        ? "Create account"
-        : {
-            patient: "Patient portal",
-            caregiver: "Caregiver portal",
-            doctor: "Clinician portal",
-          }[document.getElementById("role")?.value || "patient"] || "Sign in";
+      panelTitle.textContent = registering ? "Create account" : "Sign in";
     }
     if (panelSub) {
       panelSub.textContent = registering
@@ -836,12 +855,19 @@ function patientEmailSlug(email) {
 
 async function loadDoctorPatientEmails(session) {
   try {
-    return isApiMode()
-      ? (await fetchDoctorPatients()).map((r) => r.patient_email)
-      : listLinkedPatientIds(session.doctorId);
+    if (isApiMode()) return await fetchDoctorPatients();
+    return listLinkedPatientIds(session.doctorId).map((email) => ({ patient_email: email }));
   } catch {
     return [];
   }
+}
+
+function doctorEmailFromRow(row) {
+  return row?.patient_email || row || "";
+}
+
+function doctorEmailList(rows) {
+  return (rows || []).map(doctorEmailFromRow).filter(Boolean);
 }
 
 /** @param {string} patientEmail */
@@ -898,7 +924,8 @@ function setSelectedDoctorPatient(email) {
   }
 }
 
-function renderDoctorPatientContext(patientEmails) {
+function renderDoctorPatientContext(patientRows) {
+  const patientEmails = doctorEmailList(patientRows);
   if (!patientEmails.length) {
     return `<div class="doctor-context-bar doctor-context-bar--empty">
       <div class="doctor-context-text">
@@ -1030,7 +1057,7 @@ function bindDoctorExportActions(root, session, selectedEmail, loadBundle) {
       if (msg()) msg().textContent = "Syncing exports…";
       try {
         await syncDoctorExports();
-        await renderDoctorHome(root);
+        await renderDoctorPortal(root);
       } catch (e) {
         if (msg()) msg().textContent = e instanceof Error ? e.message : String(e);
       }
@@ -1276,7 +1303,7 @@ function bindDoctorClinicalForms(root, session) {
           { diagnosisName, confirmed, notes, linkedSubmissionId },
           session
         );
-        await renderDoctorHome(root);
+        await renderDoctorPortal(root);
       } catch (err) {
         if (msgEl) msgEl.textContent = err instanceof Error ? err.message : String(err);
       }
@@ -1284,167 +1311,307 @@ function bindDoctorClinicalForms(root, session) {
   });
 }
 
-async function renderDoctorHome(root) {
+function renderDoctorCheckinsPanel(pid, subs) {
+  return `<section class="doctor-workspace-panel card">
+    <h2>Wellness log submissions</h2>
+    <p class="muted">Structured mood, sleep, and side-effect entries — educational summaries, not diagnosis.</p>
+    ${
+      subs.length === 0
+        ? `<p class="muted">No submissions yet.</p>`
+        : `<table>
+        <thead><tr><th>Time</th><th>Answers</th><th>Summary</th></tr></thead>
+        <tbody>
+          ${subs
+            .map(
+              (s) =>
+                `<tr>
+                  <td>${escapeHtml(s.submittedAt)}</td>
+                  <td><pre class="doctor-json-pre">${escapeHtml(JSON.stringify(s.answers, null, 2))}</pre></td>
+                  <td class="doctor-summary-cell">${formatSummaryCellHtml(s)}</td>
+                </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>`
+    }
+  </section>`;
+}
+
+function renderDoctorDirectChatWorkspace(directData, supportChatBlock, escapeHtml) {
+  const directPanel = renderDirectChatPanel({
+    title: "Direct messages",
+    lead: "Two-way chat for urgent check-ins. Available once linked — no Privacy toggle required.",
+    messages: directData.messages || [],
+    viewerRole: "doctor",
+    escapeHtml,
+    linked: directData.linked !== false,
+    notLinkedMessage:
+      directData.message ||
+      "Select a linked person in the left rail, or link them under Link person using their exact HearHer sign-in email.",
+    formId: "doctorDirectChatForm",
+    composerOpts: { placeholder: "Reply to your patient…" },
+  });
+
+  return `<div class="doctor-direct-chat-stack">
+    ${directPanel}
+    <details class="doctor-support-log">
+      <summary>AI support chat log (read-only, requires patient consent)</summary>
+      <div class="doctor-support-log-body">${supportChatBlock}</div>
+    </details>
+  </div>`;
+}
+
+function renderDoctorClinicalPanel(pid, subs, clinicalRecords) {
+  const slug = patientEmailSlug(pid);
+  const submissionOptions = subs
+    .map(
+      (s) =>
+        `<option value="${escapeHtml(s.id)}">${escapeHtml(s.submittedAt)} — ${escapeHtml(shortPreview(submissionPlainText(s)))}</option>`
+    )
+    .join("");
+  return `<section class="doctor-workspace-panel card doctor-clinical-card" data-patient-email="${escapeHtml(pid)}">
+    <h2>Visit documentation</h2>
+    <p class="muted">Your notes after the visit. They can read entries on their home screen.</p>
+    ${formatClinicalRecordsListHtml(clinicalRecords)}
+    <form class="clinical-record-form" data-patient="${escapeHtml(pid)}">
+      <div class="row two">
+        <div>
+          <label for="diag-name-${slug}">Diagnosis name</label>
+          <input id="diag-name-${slug}" name="diagnosisName" type="text" list="diag-suggestions-${slug}" required maxlength="200" placeholder="e.g. Breast cancer" />
+          <datalist id="diag-suggestions-${slug}">
+            ${CLINICAL_DIAGNOSIS_SUGGESTIONS.map((d) => `<option value="${escapeHtml(d)}"></option>`).join("")}
+          </datalist>
+        </div>
+        <div>
+          <label for="diag-conf-${slug}">Status</label>
+          <select id="diag-conf-${slug}" name="confirmed" required>
+            <option value="true">Confirmed</option>
+            <option value="false">Provisional / rule out</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="diag-notes-${slug}">Clinical notes</label>
+          <textarea id="diag-notes-${slug}" name="notes" rows="4" maxlength="4000" placeholder="Plan, follow-up, psychosocial referrals…"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="diag-sub-${slug}">Link to wellness log (optional)</label>
+          <select id="diag-sub-${slug}" name="linkedSubmissionId">
+            <option value="">— None —</option>
+            ${submissionOptions}
+          </select>
+        </div>
+      </div>
+      <p class="muted clinical-form-msg" id="clinical-msg-${slug}"></p>
+      <button type="submit" class="btn btn-primary">Save diagnosis</button>
+    </form>
+  </section>`;
+}
+
+function renderDoctorLinkPanel() {
+  return `<section class="doctor-workspace-panel card">
+    <h2>Link someone to your roster</h2>
+    <p class="muted">Use the same email they use to sign in to HearHer.</p>
+    <form id="doctorLinkForm">
+      <label>Email<input type="email" id="pEmail" required placeholder="name@example.com" /></label>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">Link</button>
+      </div>
+    </form>
+    <p id="linkMsg" class="muted"></p>
+  </section>`;
+}
+
+async function renderDoctorPortal(root) {
   const session = requireSession("doctor");
   if (!session) return;
+  setDoctorPortalBodyClass(true);
 
-  const patientEmails = await loadDoctorPatientEmails(session);
+  const view = parseDoctorView(location.hash);
+  let patientRows = [];
+  try {
+    patientRows = await loadDoctorPatientEmails(session);
+  } catch {
+    patientRows = [];
+  }
+  const patientEmails = doctorEmailList(patientRows);
   const selectedEmail = getSelectedDoctorPatient(patientEmails);
 
   let totalCheckins = 0;
+  let withSnapshot = 0;
   const overview = [];
-  try {
-    for (const email of patientEmails) {
+  for (const row of patientRows) {
+    const email = row.patient_email || row;
+    try {
       const { subs, clinicalRecords } = await loadDoctorPatientBundle(email);
       totalCheckins += subs.length;
-      overview.push({ email, checkins: subs.length, diagnoses: clinicalRecords.length });
+      let hasSnapshot = false;
+      if (isApiMode()) {
+        try {
+          const remote = await fetchDoctorPatientSnapshot(email);
+          hasSnapshot = Boolean(remote?.snapshot && Object.keys(remote.snapshot).length);
+          if (hasSnapshot && email === selectedEmail) {
+            localStorage.setItem(
+              `hearher.betweenVisit.v1:${email}`,
+              JSON.stringify({ ...remote.snapshot, updatedAt: remote.updatedAt })
+            );
+          }
+        } catch {
+          hasSnapshot = Boolean(loadBetweenVisit(email).updatedAt);
+        }
+      } else {
+        hasSnapshot = Boolean(loadBetweenVisit(email).updatedAt);
+      }
+      if (hasSnapshot) withSnapshot += 1;
+      overview.push({
+        email,
+        displayName: row.display_name,
+        checkins: subs.length,
+        diagnoses: clinicalRecords.length,
+        hasSnapshot,
+      });
+    } catch {
+      overview.push({ email, displayName: row.display_name, checkins: 0, diagnoses: 0, hasSnapshot: false });
     }
-  } catch {
-    /* overview optional */
   }
 
-  let activeCard = "";
-  if (selectedEmail) {
+  let workspaceHtml = "";
+
+  if (view === "dashboard") {
+    workspaceHtml = renderDoctorDashboardOverview(
+      {
+        linkedCount: patientEmails.length,
+        totalCheckins,
+        withSnapshot,
+        selectedEmail,
+        overview,
+      },
+      escapeHtml
+    );
+  } else if (view === "link") {
+    workspaceHtml = renderDoctorLinkPanel();
+  } else if (view === "export") {
+    let exportInfo = null;
+    if (isApiMode()) {
+      try {
+        exportInfo = await fetchDoctorExportManifest();
+      } catch {
+        exportInfo = null;
+      }
+    }
+    workspaceHtml = `<div class="doctor-workspace-panel">${renderDoctorExportCard(exportInfo, isApiMode())}</div>`;
+  } else if (view === "moderation") {
+    workspaceHtml = `<div class="doctor-workspace-panel" id="doctorModerationHost"><p class="muted">Loading safety log…</p></div>`;
+  } else if (!selectedEmail) {
+    workspaceHtml = renderDoctorNoSelection(view, escapeHtml);
+  } else if (view === "between-visit") {
+    let data = loadBetweenVisit(selectedEmail);
+    let updatedAt = data.updatedAt;
+    let displayName = patientRows.find((r) => (r.patient_email || r) === selectedEmail)?.display_name || "";
+    if (isApiMode()) {
+      try {
+        const remote = await fetchDoctorPatientSnapshot(selectedEmail);
+        if (remote?.snapshot) {
+          data = { ...remote.snapshot, updatedAt: remote.updatedAt };
+          localStorage.setItem(`hearher.betweenVisit.v1:${selectedEmail}`, JSON.stringify(data));
+          updatedAt = remote.updatedAt;
+          displayName = remote.patientDisplayName || displayName;
+        }
+      } catch {
+        /* local */
+      }
+    }
+    workspaceHtml = renderDoctorBetweenVisitPanel(data, selectedEmail, escapeHtml, {
+      displayName,
+      updatedAt,
+    });
+  } else {
     try {
       const bundle = await loadDoctorPatientBundle(selectedEmail);
-      activeCard = renderDoctorPatientCard(
-        selectedEmail,
-        bundle.subs,
-        bundle.chatBlock,
-        bundle.clinicalRecords
-      );
+      if (view === "checkins") {
+        workspaceHtml = renderDoctorCheckinsPanel(selectedEmail, bundle.subs);
+      } else if (view === "chat") {
+        let directData = { linked: true, messages: [] };
+        try {
+          directData = await fetchDirectMessagesUnified(session, {
+            channel: "doctor",
+            patientEmail: selectedEmail,
+          });
+        } catch (err) {
+          directData = {
+            linked: false,
+            messages: [],
+            message: err instanceof Error ? err.message : String(err),
+          };
+        }
+        workspaceHtml = `<section class="doctor-workspace-panel">${renderDoctorDirectChatWorkspace(
+          directData,
+          bundle.chatBlock,
+          escapeHtml
+        )}</section>`;
+      } else if (view === "clinical") {
+        workspaceHtml = renderDoctorClinicalPanel(selectedEmail, bundle.subs, bundle.clinicalRecords);
+      }
     } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      activeCard = `<div class="card callout danger">
-        <p><strong>Could not load this patient’s record.</strong></p>
-        <p class="muted">${escapeHtml(detail)}</p>
-        <p class="muted">Check that the patient is still linked, the server is running, and you are signed in as a clinician.</p>
-      </div>`;
-    }
-  }
-
-  const overviewRows = overview
-    .map(
-      (o) =>
-        `<tr class="${o.email === selectedEmail ? "is-active" : ""}" data-patient="${escapeHtml(o.email)}" title="Click to select patient">
-          <td><strong>${escapeHtml(o.email)}</strong></td>
-          <td>${o.checkins}</td>
-          <td>${o.diagnoses}</td>
-        </tr>`
-    )
-    .join("");
-
-  let exportInfo = null;
-  if (isApiMode()) {
-    try {
-      exportInfo = await fetchDoctorExportManifest();
-    } catch {
-      exportInfo = null;
+      workspaceHtml = `<div class="callout danger"><p>${escapeHtml(err instanceof Error ? err.message : String(err))}</p></div>`;
     }
   }
 
   root.innerHTML =
     renderHeader(session) +
-    renderDoctorPatientContext(patientEmails) +
-    `
-    <main class="doctor-main">
-      <section class="doctor-dash-hero card">
-        <div class="doctor-dash-hero-text">
-          <span class="badge badge-doctor">Clinician</span>
-          <h1>Dashboard</h1>
-          <p class="muted">Signed in as <strong>${escapeHtml(session.displayName)}</strong></p>
-        </div>
-        <div class="doctor-dash-stat-grid">
-          <div class="doctor-dash-stat">
-            <span class="doctor-dash-stat-value">${patientEmails.length}</span>
-            <span class="doctor-dash-stat-label">Linked patients</span>
-          </div>
-          <div class="doctor-dash-stat">
-            <span class="doctor-dash-stat-value">${totalCheckins}</span>
-            <span class="doctor-dash-stat-label">Total check-ins</span>
-          </div>
-          <div class="doctor-dash-stat doctor-dash-stat--accent">
-            <span class="doctor-dash-stat-value">${selectedEmail ? "1" : "0"}</span>
-            <span class="doctor-dash-stat-label">Active selection</span>
-          </div>
-        </div>
-        <div class="doctor-dash-actions btn-row">
-          <a class="btn btn-primary" href="#/doctor/link">Link patient</a>
-          <a class="btn btn-ghost" href="#/doctor/moderation">Safety log (flagged posts)</a>
-        </div>
-      </section>
+    renderDoctorShell(session, view, patientRows, selectedEmail, workspaceHtml, escapeHtml) +
+    renderProductFooter();
 
-      ${renderDoctorExportCard(exportInfo, isApiMode())}
-
-      ${
-        patientEmails.length
-          ? `${renderDoctorPatientPicker(patientEmails, selectedEmail)}
-      ${
-        overview.length
-          ? `<section class="card doctor-overview-card">
-        <h2 class="doctor-overview-title">Roster overview</h2>
-        <p class="muted">Click a row to switch the active patient.</p>
-        <div class="research-table-wrap">
-          <table class="doctor-overview-table">
-            <thead><tr><th>Patient email</th><th>Check-ins</th><th>Diagnoses logged</th></tr></thead>
-            <tbody>${overviewRows}</tbody>
-          </table>
-        </div>
-      </section>`
-          : ""
-      }
-      ${activeCard}`
-          : `<section class="card doctor-empty-card">
-        <h2>No linked patients yet</h2>
-        <p class="muted">Link a patient email that matches their HearHer account to review check-ins and notes.</p>
-        <a class="btn btn-primary" href="#/doctor/link">Link your first patient</a>
-      </section>`
-      }
-    </main>`;
-
+  bindDoctorPatientRail(root, (email) => {
+    setSelectedDoctorPatient(email);
+    void renderDoctorPortal(root);
+  });
   bindDoctorClinicalForms(root, session);
-  bindDoctorPatientPicker(root, () => void renderDoctorHome(root));
   bindDoctorExportActions(root, session, selectedEmail, loadDoctorPatientBundle);
+
+  document.getElementById("doctorLinkForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("pEmail")?.value || "";
+    const res = await linkPatientUnified(session, email);
+    const msgEl = document.getElementById("linkMsg");
+    if (res.ok) {
+      if (msgEl) msgEl.textContent = "Linked. Select them in the rail to review records.";
+      setSelectedDoctorPatient(res.patientId || slugifyEmail(email));
+      location.hash = "#/doctor/between-visit";
+    } else if (msgEl) {
+      msgEl.textContent = res.error || "Could not link.";
+    }
+  });
+
+  if (view === "moderation") {
+    await mountDoctorModerationInShell(root, session, patientEmails);
+  }
+
+  if (view === "chat" && selectedEmail) {
+    bindDirectChatForm(root, "doctorDirectChatForm", {
+      onSend: async ({ text, urgent }) => {
+        await sendDirectMessageUnified(session, {
+          channel: "doctor",
+          patientEmail: selectedEmail,
+          text,
+          urgent,
+        });
+        await renderDoctorPortal(root);
+      },
+      onRefresh: () => void renderDoctorPortal(root),
+    });
+    scrollDirectChatToBottom(root);
+  }
+
   await bindLogout();
 }
 
-async function renderPatientLearn(root) {
-  const session = requireSession("patient");
-  if (!session) return;
-  mountLearnPage(root, { session, renderHeader, bindLogout, escapeHtml });
-}
-
-async function renderPatientCommunity(root) {
-  const session = requireSession("patient");
-  if (!session) return;
-  mountCommunityPage(root, {
-    session,
-    renderHeader,
-    bindLogout,
-    escapeHtml,
-    isApiMode,
-  });
-}
-
-function mapLocalRejectedPost(p) {
-  return {
-    id: p.id,
-    authorDisplay: p.authorDisplay || p.authorId || "Patient",
-    body: p.body,
-    status: p.status || "rejected",
-    moderationReason: p.moderationReason || "",
-    patientMessage: p.patientMessage || p.moderationReason || "",
-    guidanceType: p.guidanceType || "warning",
-    createdAt: p.createdAt || "",
-    patientEmail: p.authorId || "",
-  };
-}
-
-async function renderDoctorModeration(root) {
-  const session = requireSession("doctor");
-  if (!session) return;
-
-  const patientEmails = await loadDoctorPatientEmails(session);
+async function mountDoctorModerationInShell(root, session, patientEmails) {
+  const host = root.querySelector("#doctorModerationHost");
+  if (!host) return;
 
   let data = normalizeModerationPayload(null, patientEmails);
   try {
@@ -1459,87 +1626,101 @@ async function renderDoctorModeration(root) {
         allComments: [],
         linkedPosts: rejected.filter((p) => linkedSet.has(String(p.patientEmail).toLowerCase())),
         linkedComments: [],
-        note:
-          "Offline mode: showing rejected community posts stored in this browser only. Run python3 server.py for the full safety log.",
+        note: "Offline mode: rejected posts in this browser only.",
       };
     }
   } catch (e) {
-    root.innerHTML =
-      renderHeader(session) +
-      `<main><div class="card"><p class="muted">${escapeHtml(e instanceof Error ? e.message : String(e))}</p></div></main>`;
-    await bindLogout();
+    host.innerHTML = `<p class="muted">${escapeHtml(e instanceof Error ? e.message : String(e))}</p>`;
     return;
   }
 
-  let modTab =
-    data.linkedPosts.length > 0 || data.linkedComments.length > 0 ? "linked" : "all";
+  const posts = data.linkedPosts.length ? data.linkedPosts : data.allPosts;
+  const postsHtml = posts.length
+    ? posts.map((p) => renderDoctorModItem(p, "Post", escapeHtml)).join("")
+    : `<p class="muted">No flagged posts.</p>`;
+  const comments = data.linkedComments.length ? data.linkedComments : data.allComments;
+  const commentsHtml = comments.length
+    ? comments.map((c) => renderDoctorModItem(c, "Comment", escapeHtml)).join("")
+    : `<p class="muted">No flagged comments.</p>`;
+  host.innerHTML = `
+    <p class="muted">${escapeHtml(data.note || "")}</p>
+    <h2>Flagged posts</h2>${postsHtml}
+    <h2>Flagged comments</h2>${commentsHtml}`;
+}
 
-  const renderQueue = (posts, comments) => {
-    const postsHtml = posts?.length
-      ? posts.map((p) => renderDoctorModItem(p, "Post", escapeHtml)).join("")
-      : '<p class="muted">No flagged posts in this view.</p>';
-    const commentsHtml = comments?.length
-      ? comments.map((c) => renderDoctorModItem(c, "Comment", escapeHtml)).join("")
-      : '<p class="muted">No flagged comments in this view.</p>';
-    return `<h2>Flagged posts</h2>${postsHtml}<h2>Flagged comments</h2>${commentsHtml}`;
+async function renderDoctorHome(root) {
+  return renderDoctorPortal(root);
+}
+
+async function renderPatientLearn(root) {
+  const session = requireSession("patient");
+  if (!session) return;
+  mountLearnPage(root, { session, renderHeader, bindLogout, escapeHtml });
+}
+
+async function renderCaregiverLune(root) {
+  const session = requireSession("caregiver");
+  if (!session) return;
+  mountLuneApp(root, {
+    session,
+    renderHeader,
+    bindLogout,
+    escapeHtml,
+    isApiMode,
+    communityRole: "caregiver",
+  });
+}
+
+async function renderPatientLune(root) {
+  const session = requireSession("patient");
+  if (!session) return;
+  mountLuneApp(root, {
+    session,
+    renderHeader,
+    bindLogout,
+    escapeHtml,
+    isApiMode,
+    communityRole: "patient",
+  });
+}
+
+async function renderCaregiverCommunity(root) {
+  location.hash = "#/caregiver/lune/witnesses";
+}
+
+async function renderPatientCommunity(root) {
+  location.hash = "#/patient/lune/witnesses";
+}
+
+function mapLocalRejectedPost(p) {
+  return {
+    id: p.id,
+    authorDisplay: p.authorDisplay || p.authorId || "Patient",
+    body: p.body,
+    status: p.status || "rejected",
+    moderationReason: p.moderationReason || "",
+    patientMessage: p.patientMessage || p.moderationReason || "",
+    guidanceType: p.guidanceType || "warning",
+    createdAt: p.createdAt || "",
+    patientEmail: p.authorId || "",
+    groupId: p.groupId || p.group_id || "",
   };
+}
 
-  const paint = () => {
-    const linked = modTab === "linked";
-    const posts = linked ? data.linkedPosts : data.allPosts;
-    const comments = linked ? data.linkedComments : data.allComments;
-    const linkedCount = (data.linkedPosts?.length || 0) + (data.linkedComments?.length || 0);
-    const allCount = (data.allPosts?.length || 0) + (data.allComments?.length || 0);
-
-    root.innerHTML =
-      renderHeader(session) +
-      renderDoctorPatientContext(patientEmails) +
-      `
-    <main class="doctor-main">
-      <div class="card prose">
-        <h1>Safety log</h1>
-        <p class="muted">${escapeHtml(
-          data.note ||
-            "Read-only log of community content that was not published. Follow up with linked patients when guidance suggests clinical or crisis support."
-        )}</p>
-        <div class="mod-tabs" role="tablist">
-          <button type="button" class="mod-tab ${linked ? "mod-tab--active" : ""}" data-mod-tab="linked">
-            Linked patients (${linkedCount})
-          </button>
-          <button type="button" class="mod-tab ${!linked ? "mod-tab--active" : ""}" data-mod-tab="all">
-            All patients (${allCount})
-          </button>
-        </div>
-        <div id="modQueueBody">${renderQueue(posts, comments)}</div>
-        ${
-          !isApiMode()
-            ? `<p class="muted mod-offline-hint">Start the server with <code>python3 server.py</code> and open <code>http://127.0.0.1:8000</code> to load the full safety log from the database.</p>`
-            : linkedCount === 0 && allCount > 0 && linked
-              ? `<p class="callout callout-info">No flagged items from your <strong>linked</strong> patients. Switch to <strong>All patients</strong> or link the patient at Doctor → Link patient.</p>`
-              : ""
-        }
-      </div>
-    </main>`;
-
-    root.querySelectorAll("[data-mod-tab]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        modTab = btn.getAttribute("data-mod-tab") || "linked";
-        paint();
-      });
-    });
-  };
-
-  paint();
-  await bindLogout();
+async function renderDoctorModeration(root) {
+  return renderDoctorPortal(root);
 }
 
 async function renderPatientSettings(root) {
   const session = requireSession("patient");
   if (!session) return;
   const consent = getChatConsent(session);
-  const cgConsent = isApiMode()
-    ? Boolean(session.shareWithCaregiver)
-    : getShareCaregiverConsent(session.patientId);
+  const partnerConsent = isApiMode()
+    ? Boolean(session.shareWithPartner)
+    : getSharePartnerConsent(session.patientId);
+  const childrenConsent = isApiMode()
+    ? Boolean(session.shareWithChildren)
+    : getShareChildrenConsent(session.patientId);
 
   root.innerHTML =
     renderHeader(session) +
@@ -1552,11 +1733,20 @@ async function renderPatientSettings(root) {
           <input type="checkbox" id="shareChat" ${consent ? "checked" : ""} />
           Share support chat with linked clinicians
         </label>
-        <label class="checkbox-row">
-          <input type="checkbox" id="shareCaregiver" ${cgConsent ? "checked" : ""} />
-          Share between-visit summaries with linked caregivers
-        </label>
-        <p class="muted">Caregivers see visit briefs and family-friendly notes — not raw medical records.</p>
+        <fieldset class="privacy-caregiver-group">
+          <legend>Share with family (separate controls)</legend>
+          <label class="checkbox-row">
+            <input type="checkbox" id="sharePartner" ${partnerConsent ? "checked" : ""} />
+            Share between-visit summaries with partner or spouse
+          </label>
+          <p class="muted privacy-subnote">Full visit brief, wellness reflection, and Family Explain for partner — when they link as partner.</p>
+          <label class="checkbox-row">
+            <input type="checkbox" id="shareChildren" ${childrenConsent ? "checked" : ""} />
+            Share age-appropriate summaries with adult children
+          </label>
+          <p class="muted privacy-subnote">Mood, treatment phase, and Family Explain for children only — not full clinical detail.</p>
+        </fieldset>
+        <p class="muted"><strong>Emergency contacts</strong> — linked clinician and caregiver phone numbers, plus optional in-app backup notes. For life-threatening emergencies, call 995.</p>
         <p id="consentMsg" class="muted"></p>
         <div class="btn-row">
           <button class="btn btn-primary" type="button" id="saveConsent">Save</button>
@@ -1568,13 +1758,18 @@ async function renderPatientSettings(root) {
   await bindLogout();
   document.getElementById("saveConsent").onclick = async () => {
     const chatEnabled = document.getElementById("shareChat").checked;
-    const cgEnabled = document.getElementById("shareCaregiver").checked;
+    const partnerEnabled = document.getElementById("sharePartner").checked;
+    const childrenEnabled = document.getElementById("shareChildren").checked;
     await setChatConsentUnified(session, chatEnabled);
-    await setCaregiverConsentUnified(session, cgEnabled);
+    await setCaregiverConsentUnified(session, {
+      partner: partnerEnabled,
+      children: childrenEnabled,
+    });
     await syncBetweenVisitSnapshot(session);
     document.getElementById("consentMsg").textContent = [
       chatEnabled ? "Clinician chat sharing on." : "Clinician chat sharing off.",
-      cgEnabled ? "Caregiver sharing on." : "Caregiver sharing off.",
+      partnerEnabled ? "Partner sharing on." : "Partner sharing off.",
+      childrenEnabled ? "Adult-children sharing on." : "Adult-children sharing off.",
     ].join(" ");
   };
 }
@@ -1642,16 +1837,21 @@ async function renderCaregiverHomePage(root) {
     "";
 
   const row = linked.find((p) => (p.patient_email || p) === selected);
-  const shareEnabled = selected ? caregiverShareEnabled(selected, row) : false;
+  const relationship = row?.relationship || "other";
+  const shareEnabled = selected ? caregiverShareEnabled(selected, row, relationship) : false;
+  let patientDisplayName = row?.display_name || "";
+  let updatedAt = null;
 
   if (isApiMode() && selected && shareEnabled) {
     try {
-      const remote = await fetchCaregiverPatientSnapshot(selected);
+      const remote = await fetchCaregiverPatientSnapshot(selected, relationship);
       if (remote?.snapshot) {
         localStorage.setItem(
           `hearher.betweenVisit.v1:${selected}`,
           JSON.stringify({ ...remote.snapshot, updatedAt: remote.updatedAt })
         );
+        updatedAt = remote.updatedAt || null;
+        patientDisplayName = remote.patientDisplayName || patientDisplayName;
       }
     } catch {
       /* show local or empty */
@@ -1660,13 +1860,21 @@ async function renderCaregiverHomePage(root) {
 
   root.innerHTML =
     renderHeader(session) +
-    renderCaregiverHome(session, escapeHtml, linked, selected, { shareEnabled }) +
+    renderCaregiverHome(session, escapeHtml, linked, selected, {
+      shareEnabled,
+      patientDisplayName,
+      updatedAt,
+      relationship,
+    }) +
     renderProductFooter();
 
   await bindLogout();
-  initCaregiverHome((email) => {
-    location.hash = `#/caregiver?patient=${encodeURIComponent(email)}`;
-  });
+  initCaregiverHome(
+    (email) => {
+      location.hash = `#/caregiver?patient=${encodeURIComponent(email)}`;
+    },
+    () => void renderCaregiverHomePage(root)
+  );
 }
 
 async function renderCaregiverLink(root) {
@@ -1679,9 +1887,14 @@ async function renderCaregiverLink(root) {
   document.getElementById("caregiverLinkForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById("caregiverPatientEmail")?.value || "";
-    const res = await linkCaregiverPatientUnified(session, email);
+    const relationship = document.getElementById("caregiverRelationship")?.value || "other";
+    const res = await linkCaregiverPatientUnified(session, email, relationship);
     document.getElementById("caregiverLinkMsg").textContent = res.ok
-      ? "Patient linked. They must enable caregiver sharing under Privacy."
+      ? relationship === "child"
+        ? "Linked as adult child. They must turn on adult-children sharing under Privacy."
+        : relationship === "partner"
+          ? "Linked as partner. They must turn on partner sharing under Privacy."
+          : "Patient linked. They must enable partner sharing under Privacy for full summaries."
       : res.error || "Could not link patient.";
   });
 }
@@ -1701,15 +1914,139 @@ async function renderPatientChat(root) {
   });
 }
 
+async function renderPatientMessages(root) {
+  const session = requireSession("patient");
+  if (!session) return;
+
+  const hash = location.hash || "#/patient/messages";
+  const params = new URLSearchParams((hash.split("?")[1] || ""));
+  let channel = params.get("channel") || "doctor";
+  if (channel !== "doctor" && channel !== "caregiver") channel = "doctor";
+
+  let contacts = {
+    hasLinkedDoctor: false,
+    hasLinkedCaregiver: false,
+    doctorDisplayName: null,
+    caregiverDisplayNames: [],
+  };
+  let contactsError = "";
+  try {
+    contacts = await fetchDirectMessageContacts(session);
+  } catch (err) {
+    contactsError = err instanceof Error ? err.message : String(err);
+  }
+
+  if (channel === "doctor" && !contacts.hasLinkedDoctor && contacts.hasLinkedCaregiver) {
+    channel = "caregiver";
+  } else if (channel === "caregiver" && !contacts.hasLinkedCaregiver && contacts.hasLinkedDoctor) {
+    channel = "doctor";
+  }
+
+  let messages = { linked: false, messages: [], message: "Not linked yet." };
+  try {
+    messages = await fetchDirectMessagesUnified(session, { channel });
+  } catch (err) {
+    messages = {
+      linked: false,
+      messages: [],
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  root.innerHTML =
+    renderHeader(session) +
+    renderPatientMessagesPage(session, contacts, channel, messages, escapeHtml, {
+      contactsError,
+      signInEmail: session.email || session.patientId || "",
+      serverMode: isApiMode(),
+    }) +
+    renderProductFooter();
+
+  await bindLogout();
+  bindDirectChatForm(root, "patientDirectChatForm", {
+    onSend: async ({ text, urgent }) => {
+      await sendDirectMessageUnified(session, { channel, text, urgent });
+      await renderPatientMessages(root);
+    },
+    onRefresh: () => void renderPatientMessages(root),
+  });
+  scrollDirectChatToBottom(root);
+}
+
+async function renderCaregiverDirectChat(root) {
+  const session = requireSession("caregiver");
+  if (!session) return;
+
+  let linked = [];
+  try {
+    linked = await fetchCaregiverPatients();
+  } catch {
+    linked = [];
+  }
+
+  const hash = location.hash || "#/caregiver/chat";
+  const params = new URLSearchParams((hash.split("?")[1] || ""));
+  const selected =
+    params.get("patient") ||
+    linked[0]?.patient_email ||
+    (typeof linked[0] === "string" ? linked[0] : "") ||
+    "";
+
+  const row = linked.find((p) => (p.patient_email || p) === selected);
+  const patientName = row?.display_name || selected.split("@")[0] || "";
+
+  let messages = { linked: false, messages: [] };
+  if (selected) {
+    try {
+      messages = await fetchDirectMessagesUnified(session, {
+        channel: "caregiver",
+        patientEmail: selected,
+      });
+    } catch (err) {
+      messages = {
+        linked: false,
+        messages: [],
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  root.innerHTML =
+    renderHeader(session) +
+    renderCaregiverDirectChatPage(session, selected, patientName, messages, escapeHtml, {
+      phone: row?.phone || null,
+      linkedPatients: linked,
+    }) +
+    renderProductFooter();
+
+  await bindLogout();
+
+  if (selected) {
+    bindDirectChatForm(root, "caregiverDirectChatForm", {
+      onSend: async ({ text, urgent }) => {
+        await sendDirectMessageUnified(session, {
+          channel: "caregiver",
+          patientEmail: selected,
+          text,
+          urgent,
+        });
+        await renderCaregiverDirectChat(root);
+      },
+      onRefresh: () => void renderCaregiverDirectChat(root),
+    });
+    scrollDirectChatToBottom(root);
+  }
+}
+
 async function renderDoctorResearch(root) {
   const session = requireSession("doctor");
   if (!session) return;
 
-  const patientEmails = await loadDoctorPatientEmails(session);
+  const patientRows = await loadDoctorPatientEmails(session);
 
   root.innerHTML =
     renderHeader(session) +
-    renderDoctorPatientContext(patientEmails) +
+    renderDoctorPatientContext(patientRows) +
     `
     <main class="doctor-main research-page">
 ${renderResearchPageHead()}
@@ -1727,51 +2064,8 @@ ${renderResearchPageHead()}
 }
 
 async function renderDoctorLink(root) {
-  const session = requireSession("doctor");
-  if (!session) return;
-
-  const hint = isApiMode()
-    ? "Enter the patient’s registered email. The connection is stored in your clinic’s patient roster."
-    : "Enter the same email the patient used to sign in. Links are stored locally in this browser until server sync is enabled.";
-
-  const patientEmails = await loadDoctorPatientEmails(session);
-
-  root.innerHTML =
-    renderHeader(session) +
-    renderDoctorPatientContext(patientEmails) +
-    `
-    <main class="doctor-main">
-      <div class="card">
-        <h1>Link a patient</h1>
-        <p class="muted">${escapeHtml(hint)}</p>
-        <form id="linkForm">
-          <div class="row">
-            <div>
-              <label for="pEmail">Patient email</label>
-              <input id="pEmail" name="pEmail" type="email" required />
-            </div>
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-primary" type="submit">Link</button>
-            <a class="btn btn-ghost" href="#/doctor">Back</a>
-          </div>
-          <p id="linkMsg" class="muted"></p>
-        </form>
-      </div>
-    </main>`;
-
-  await bindLogout();
-  document.getElementById("linkForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = slugifyEmail(document.getElementById("pEmail").value);
-    const res = await linkPatientUnified(session, email);
-    const msg = document.getElementById("linkMsg");
-    msg.textContent = res.ok ? `Linked: ${res.patientId}` : res.error;
-    if (res.ok) {
-      setSelectedDoctorPatient(email);
-      setTimeout(() => { location.hash = "#/doctor"; }, 400);
-    }
-  });
+  location.hash = "#/doctor/link";
+  return renderDoctorPortal(root);
 }
 
 function escapeHtml(s) {
@@ -2018,6 +2312,9 @@ async function renderPatientCheckinsTrash(root) {
 
 async function router() {
   const root = document.getElementById("app");
+  applyMobileShellClasses();
+  setDoctorPortalBodyClass(false);
+  document.body.classList.remove("portal-mobile", "lune-community-active", "lune-fullscreen");
   if (isApiMode()) {
     await refreshApiSession();
   }
@@ -2026,13 +2323,20 @@ async function router() {
 
   if (route === "#/about") return await renderAbout(root);
   if (route === "#/login") return renderLogin(root);
+
+  if (route.startsWith("#/patient") || route.startsWith("#/caregiver")) {
+    document.body.classList.add("portal-mobile");
+  }
+
   if (route === "#/patient") return await renderPatientHome(root);
   if (route === "#/patient/checkins/trash") return await renderPatientCheckinsTrash(root);
   if (route.startsWith("#/patient/checkins")) return await renderPatientCheckinsHistory(root);
   if (route === "#/patient/checkin") return await renderPatientCheckin(root);
   if (route === "#/patient/learn") return await renderPatientLearn(root);
   if (route === "#/patient/community") return await renderPatientCommunity(root);
+  if (isLuneRoute(route, "patient")) return await renderPatientLune(root);
   if (route === "#/patient/chat") return await renderPatientChat(root);
+  if (route === "#/patient/messages") return await renderPatientMessages(root);
   if (route === "#/patient/visit-brief") return await renderPatientVisitBrief(root);
   if (route === "#/patient/family") return await renderPatientFamily(root);
   if (route === "#/patient/screening") return await renderPatientScreening(root);
@@ -2040,14 +2344,17 @@ async function router() {
     return await renderPatientHumanSupport(root);
   }
   if (route === "#/patient/settings") return await renderPatientSettings(root);
-  if (route === "#/caregiver") return await renderCaregiverHomePage(root);
+  if (route === "#/caregiver/community") return await renderCaregiverCommunity(root);
+  if (isLuneRoute(route, "caregiver")) return await renderCaregiverLune(root);
   if (route === "#/caregiver/link") return await renderCaregiverLink(root);
-  if (route === "#/doctor") return await renderDoctorHome(root);
-  if (route === "#/doctor/link") return await renderDoctorLink(root);
-  if (route === "#/doctor/moderation") return await renderDoctorModeration(root);
-  if (route === "#/doctor/research") {
-    location.hash = "#/doctor";
-    return;
+  if (route === "#/caregiver/chat") return await renderCaregiverDirectChat(root);
+  if (route === "#/caregiver") return await renderCaregiverHomePage(root);
+  if (route.startsWith("#/doctor")) {
+    if (route === "#/doctor/research") {
+      location.hash = "#/doctor";
+      return;
+    }
+    return await renderDoctorPortal(root);
   }
 
   location.hash = "#/login";
@@ -2059,6 +2366,7 @@ window.addEventListener("pageshow", (ev) => {
 });
 
 async function bootPortal() {
+  initPlatform();
   await initPortal();
   if (!location.hash) location.hash = "#/login";
   await router();

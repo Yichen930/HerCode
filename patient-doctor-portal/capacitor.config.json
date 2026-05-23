@@ -1,0 +1,15 @@
+{
+  "appId": "sg.bcf.hearher.demo",
+  "appName": "Lune",
+  "webDir": ".",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#5b3d7a"
+    }
+  }
+}

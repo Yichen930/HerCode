@@ -77,6 +77,22 @@ const THEMES = [
     },
   },
   {
+    id: "bodyImage",
+    title: "Body image & identity",
+    lead: "Changes after surgery or treatment can bring grief that others do not see — it still deserves support.",
+    suggestions: [
+      "Tell your team if mirror, intimacy, or identity feels harder since treatment — not vanity, but distress.",
+      "Ask about reconstruction information, peer groups, or counsellors who specialise in body image after cancer.",
+      "Family Explain can help partners understand without trying to “fix” how you feel.",
+    ],
+    scoreFrom: (a) => {
+      if (a.bodyImage === "hard") return 1;
+      if (a.bodyImage === "some") return 0.75;
+      if (a.bodyImage === "okay") return 0.1;
+      return null;
+    },
+  },
+  {
     id: "overload",
     title: "Information overload",
     lead: "Too much information at once is overwhelming for many people after diagnosis.",
@@ -109,6 +125,7 @@ function readForm(form) {
     mood: g("mood"),
     sleep: g("sleep"),
     sideEffects: g("sideEffects"),
+    bodyImage: g("bodyImage"),
     infoOverload: g("infoOverload"),
   };
 }
@@ -275,6 +292,15 @@ export function renderPatientWellbeingPanel() {
             <option value="significant">Significant — affects daily life</option>
             <option value="some">Some discomfort</option>
             <option value="minimal">Minimal / none lately</option>
+            <option value="prefer">Prefer not to say</option>
+          </select>
+        </label>
+        <label class="patient-reflect-label">Body image since treatment
+          <select name="bodyImage">
+            <option value="">—</option>
+            <option value="hard">Hard — grief, shame, or identity feels changed</option>
+            <option value="some">Some days are harder than others</option>
+            <option value="okay">Mostly okay lately</option>
             <option value="prefer">Prefer not to say</option>
           </select>
         </label>

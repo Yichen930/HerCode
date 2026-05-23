@@ -3,10 +3,12 @@ import { getSupportReply, probeAiChat, resetAiProbe, getLastAiError } from "./ai
 import { parseSupportTabFromHash } from "./betweenVisitHome.js";
 import {
   DISMISSAL_STARTERS,
+  BODY_IMAGE_STARTERS,
   DISMISSAL_STEP_IDS,
   getDismissalIntro,
   renderDismissalAdvocacyPanel,
 } from "./dismissalSupport.js";
+import { renderEmotionalWrapUp } from "./emotionalWrapUp.js";
 import { setSupportCollected, addVisitQuestion } from "./betweenVisitStore.js";
 import { autoCollectVisitQuestions } from "./visitQuestions.js";
 import { syncBetweenVisitSnapshot } from "./sessionManager.js";
@@ -48,7 +50,7 @@ const HARD_TO_SAY_STARTERS = [
 const ENTRY_TABS = [
   { id: "feelings", title: "Feelings", desc: "Fear, grief, confusion, overload" },
   { id: "visitprep", title: "Visit prep", desc: "Goals and what to ask next" },
-  { id: "dismissal", title: "Hard to say", desc: "Dismissed or not believed" },
+  { id: "dismissal", title: "Hard to say", desc: "Dismissed, body image, not believed" },
   { id: "open", title: "Open chat", desc: "Write freely in your own words" },
 ];
 
@@ -138,7 +140,7 @@ export async function mountPatientChat(root, deps) {
 
     const aiBadge = aiOn
       ? `<span class="badge badge-ai">AI support on</span>`
-      : `<span class="badge badge-ai-off">Built-in replies. Personalized AI support is available when enabled on the server.</span>`;
+      : `<span class="badge badge-ai-off">Built-in emotional support replies — personalized AI when enabled on the server.</span>`;
 
     const entryTabsHtml = ENTRY_TABS.map((t) => {
       const active = (t.id === "open" && uiMode === "support") || (t.id !== "open" && uiMode === "guided" && entryTab === t.id);
@@ -188,10 +190,18 @@ export async function mountPatientChat(root, deps) {
                   : ""
               }
             </div>`
-          : `<p class="muted">You have finished this flow. Try another tab, switch to <strong>Open chat</strong>, or build your <a href="#/patient/visit-brief">Visit brief</a>.</p>`
+          : `<div class="support-step-panel">
+              ${renderEmotionalWrapUp(collected, escapeHtml)}
+              <p class="muted">You have finished this flow. Try another tab, switch to <strong>Open chat</strong>, or keep the conversation going below.</p>
+            </div>`
         : "";
 
-    const starters = entryTab === "dismissal" ? DISMISSAL_STARTERS : entryTab === "open" ? HARD_TO_SAY_STARTERS : SUPPORT_STARTERS;
+    const starters =
+      entryTab === "dismissal"
+        ? [...DISMISSAL_STARTERS, ...BODY_IMAGE_STARTERS]
+        : entryTab === "open"
+          ? HARD_TO_SAY_STARTERS
+          : SUPPORT_STARTERS;
 
     const supportPanel =
       uiMode === "support"
@@ -223,7 +233,7 @@ export async function mountPatientChat(root, deps) {
         <div class="card support-page">
           <h1>Support</h1>
           ${renderAiNotCounsellorBanner()}
-          <p class="muted support-lead">Between medical touchpoints, anxiety and fear are common after a breast cancer diagnosis. A private space to reflect and prepare — not therapy, not medical advice. For wellness tracking, use <a href="#/patient/checkin">Wellness log</a>.</p>
+          <p class="muted support-lead">Between medical touchpoints, anxiety, grief, and body-image worries are common after a breast cancer diagnosis. A private space to reflect and prepare — <strong>not therapy, not your counsellor</strong>, not medical advice. For mood and side effects, use <a href="#/patient/checkin">Wellness log</a>.</p>
           ${renderHumanSupportFootnote(escapeHtml)}
           <p class="support-ai-line">${aiBadge}</p>
           <p id="aiFallbackHint" class="muted support-hint"></p>

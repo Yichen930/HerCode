@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Lune">
+  <defs>
+    <radialGradient id="luneStar" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff8e8"/>
+      <stop offset="45%" stop-color="#f0d898"/>
+      <stop offset="100%" stop-color="#c9a962" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="luneMoon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5e6b8"/>
+      <stop offset="55%" stop-color="#d4b978"/>
+      <stop offset="100%" stop-color="#a88848"/>
+    </linearGradient>
+    <filter id="luneGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <path fill="url(#luneMoon)" filter="url(#luneGlow)" d="M52 8c-18 0-32 14-32 32s14 32 32 32c-4.5-6.5-7-14.5-7-23.5S47.5 14.5 52 8z"/>
+  <path fill="url(#luneStar)" d="M58 28l1.8 4.2 4.5.6-3.3 2.8 1 4.4-3.9-2.3-3.9 2.3 1-4.4-3.3-2.8 4.5-.6z"/>
+</svg>

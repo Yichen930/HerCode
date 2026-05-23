@@ -1,0 +1,26 @@
+{
+  "name": "Lune — A quiet light for difficult nights",
+  "short_name": "Lune",
+  "description": "Emotional support between breast cancer medical touchpoints.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#05070a",
+  "theme_color": "#070b17",
+  "categories": ["health", "medical"],
+  "icons": [
+    {
+      "src": "/logo/Lune-logo-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo/Lune-logo-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
