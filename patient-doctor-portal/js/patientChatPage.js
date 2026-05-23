@@ -1,0 +1,337 @@
+import { CHAT_STEPS, advanceChat, OPEN_TEXT_STEP_IDS } from "./symptomChat.js";
+import { getSupportReply, probeAiChat, resetAiProbe, getLastAiError } from "./aiChat.js";
+
+const EMOTIONAL_STEP_IDS = new Set([
+  "emotionalIntro",
+  "stressLevel",
+  "toldJustStress",
+  "embarrassed",
+  "emotionalBurden",
+  "emotionalText",
+]);
+
+const JOURNEY_STEP_IDS = new Set([
+  "journeyIntro",
+  "concernDuration",
+  "careDelay",
+  "supportNetwork",
+  "visitGoal",
+  "oneThingForDoctor",
+  "checkinBridge",
+]);
+
+const SUPPORT_STARTERS = [
+  "I feel overwhelmed and stressed about my health",
+  "I was told it is just stress but I do not feel better",
+  "I am embarrassed to talk to a doctor about this",
+  "I am scared something is wrong and no one believes me",
+];
+
+function isOpenTextStep(stepId) {
+  return OPEN_TEXT_STEP_IDS.has(stepId);
+}
+
+function guidedSectionLabel(step) {
+  if (!step) return "";
+  if (EMOTIONAL_STEP_IDS.has(step.id)) {
+    return `<p class="chat-section-label">How you feel</p>`;
+  }
+  if (JOURNEY_STEP_IDS.has(step.id)) {
+    return `<p class="chat-section-label">Care journey &amp; your visit</p>`;
+  }
+  return "";
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {object} deps
+ */
+export async function mountPatientChat(root, deps) {
+  const {
+    session,
+    renderHeader,
+    bindLogout,
+    escapeHtml,
+    isApiMode,
+    fetchChatMessagesUnified,
+    appendChatMessageUnified,
+    clearChatUnified,
+  } = deps;
+
+  let messages = [];
+  try {
+    messages = await fetchChatMessagesUnified(session);
+  } catch {
+    messages = [];
+  }
+
+  let stepIndex = 0;
+  let collected = {};
+  let uiMode = "guided";
+  let aiOn = false;
+  let busy = false;
+
+  resetAiProbe();
+  if (isApiMode()) {
+    aiOn = await probeAiChat(true);
+  }
+
+  const chatHistory = () => messages.map((m) => ({ role: m.role, text: m.text }));
+
+  const renderChatUi = () => {
+    const step = CHAT_STEPS[stepIndex];
+    const logHtml = messages
+      .map((m) => {
+        const roleLabel = m.role === "bot" && m.support ? "support" : m.role;
+        const supportClass = m.support ? " chat-support" : "";
+        return `<div class="chat-bubble chat-${escapeHtml(m.role)}${supportClass}"><span class="chat-role">${escapeHtml(roleLabel)}</span>${escapeHtml(m.text)}</div>`;
+      })
+      .join("");
+
+    const aiBadge = aiOn
+      ? `<span class="badge badge-ai">AI support on</span>`
+      : `<span class="badge badge-ai-off">Built-in replies. Personalized AI support is available when enabled on the server.</span>`;
+
+    const modeGuidedActive = uiMode === "guided";
+    const modeSupportActive = uiMode === "support";
+
+    const guidedPanel =
+      uiMode === "guided"
+        ? step && step.type !== "done"
+          ? `<div class="support-step-panel">
+              ${guidedSectionLabel(step)}
+              <p class="chat-bot-line">${escapeHtml(step.bot)}</p>
+              ${
+                step.type === "choice"
+                  ? `<div class="chat-choices">${step.options
+                      .map(
+                        (o) =>
+                          `<button type="button" class="btn btn-ghost chat-choice" data-value="${escapeHtml(o.value)}" ${busy ? "disabled" : ""}>${escapeHtml(o.label)}</button>`
+                      )
+                      .join("")}</div>`
+                  : ""
+              }
+              ${
+                step.type === "text"
+                  ? `<form id="chatTextForm" class="chat-text-form ${
+                      isOpenTextStep(step.id) ? "chat-text-form-wide" : ""
+                    }">${
+                      isOpenTextStep(step.id)
+                        ? `<textarea id="chatText" rows="3" placeholder="${
+                            step.id === "oneThingForDoctor"
+                              ? "e.g. I need you to know how much this affects my work and relationships…"
+                              : "e.g. work pressure, fear of diagnosis, feeling alone…"
+                          }" maxlength="2000" ${busy ? "disabled" : ""}></textarea>`
+                        : `<input type="text" id="chatText" placeholder="Optional message" maxlength="500" ${busy ? "disabled" : ""} />`
+                    }<button class="btn btn-primary" type="submit" ${busy ? "disabled" : ""}>Send</button></form>`
+                  : ""
+              }
+              ${
+                step.type === "continue"
+                  ? `<button type="button" class="btn btn-primary" id="chatContinue" ${busy ? "disabled" : ""}>${
+                      step.id === "welcome" ? "Start" : "Continue"
+                    }</button>`
+                  : ""
+              }
+            </div>`
+          : `<p class="muted">You have finished the step-by-step flow. Switch to <strong>Open conversation</strong> to keep talking, or use <a href="#/patient/checkin">Check-in</a> for a symptom log and educational summary.</p>`
+        : "";
+
+    const supportPanel =
+      uiMode === "support"
+        ? `<div class="support-step-panel">
+          <p class="muted support-panel-intro">Write in your own words. Pick a starter below or type your message.</p>
+          <div class="chat-starters">${SUPPORT_STARTERS.map(
+            (s) =>
+              `<button type="button" class="btn btn-ghost chat-starter" data-starter="${escapeHtml(s)}" ${busy ? "disabled" : ""}>${escapeHtml(s)}</button>`
+          ).join("")}</div>
+          <form id="supportChatForm" class="chat-text-form chat-support-form">
+            <label class="sr-only" for="supportChatInput">Your message</label>
+            <textarea id="supportChatInput" rows="4" placeholder="What has been weighing on you—stress, fear, embarrassment, feeling dismissed…" maxlength="2000" ${busy ? "disabled" : ""}></textarea>
+            <button class="btn btn-primary" type="submit" ${busy ? "disabled" : ""}>Send message</button>
+          </form>
+          <p class="muted support-panel-foot">For cycles, pain, and similar details, use <a href="#/patient/checkin">Check-in</a>. This is not therapy and not a medical diagnosis.</p>
+        </div>`
+        : "";
+
+    const inputPanelTitle =
+      uiMode === "guided"
+        ? step && step.type !== "done"
+          ? "Current step"
+          : "Step-by-step complete"
+        : "Your message";
+
+    root.innerHTML =
+      renderHeader(session) +
+      `
+      <main>
+        <div class="card support-page">
+          <h1>Support</h1>
+          <p class="muted support-lead">A private space for feelings and preparing to talk with a clinician. For symptom logging, use <a href="#/patient/checkin">Check-in</a> in the menu.</p>
+          <p class="support-ai-line">${aiBadge}</p>
+          <p id="aiFallbackHint" class="muted support-hint"></p>
+          <div class="support-mode-picker" role="tablist" aria-label="Support mode">
+            <button type="button" class="support-mode-card${modeGuidedActive ? " is-active" : ""}" data-chat-tab="guided" role="tab" aria-selected="${modeGuidedActive}">
+              <span class="support-mode-title">Step-by-step</span>
+              <span class="support-mode-desc">Short prompts about emotions and your care journey</span>
+            </button>
+            <button type="button" class="support-mode-card${modeSupportActive ? " is-active" : ""}" data-chat-tab="support" role="tab" aria-selected="${modeSupportActive}">
+              <span class="support-mode-title">Open conversation</span>
+              <span class="support-mode-desc">Write freely—stress, fear, or anything on your mind</span>
+            </button>
+          </div>
+          <div class="support-layout">
+            <section class="support-conversation" aria-label="Conversation history">
+              <h2 class="support-section-title">Conversation</h2>
+              <div class="chat-log" id="chatLog">${logHtml || `<p class="muted chat-log-empty">No messages yet. Choose a mode above and start below.</p>`}${busy ? `<p class="chat-typing muted">Thinking…</p>` : ""}</div>
+            </section>
+            <section class="support-input" aria-label="Reply">
+              <h2 class="support-section-title">${escapeHtml(inputPanelTitle)}</h2>
+              ${guidedPanel}
+              ${supportPanel}
+            </section>
+          </div>
+          <div class="btn-row support-actions">
+            <button type="button" class="btn btn-ghost" id="clearChat" ${busy ? "disabled" : ""}>Clear chat</button>
+            <a class="btn btn-ghost" href="#/patient/settings">Privacy</a>
+            <a class="btn btn-ghost" href="#/patient">Home</a>
+          </div>
+        </div>
+      </main>`;
+
+    bindLogout();
+
+    const pushMessage = async (role, text, support = false) => {
+      const saved = await appendChatMessageUnified(session, { role, text });
+      const msg = saved || { role, text, createdAt: new Date().toISOString() };
+      if (support) msg.support = true;
+      messages.push(msg);
+    };
+
+    const appendSupport = async (userText, context) => {
+      busy = true;
+      renderChatUi();
+      const { reply, source } = await getSupportReply(userText, context, isApiMode());
+      await pushMessage("bot", reply, true);
+      busy = false;
+      const hintEl = document.getElementById("aiFallbackHint");
+      if (hintEl) {
+        if (source === "fallback" && aiOn && getLastAiError()) {
+          hintEl.textContent = `AI is configured but this reply used built-in text: ${getLastAiError()}`;
+        } else if (source === "ai") {
+          hintEl.textContent = "";
+        }
+      }
+    };
+
+    document.querySelectorAll("[data-chat-tab]").forEach((btn) => {
+      btn.onclick = () => {
+        uiMode = btn.getAttribute("data-chat-tab") || "guided";
+        renderChatUi();
+      };
+    });
+
+    document.getElementById("clearChat")?.addEventListener("click", async () => {
+      await clearChatUnified(session);
+      messages = [];
+      stepIndex = 0;
+      collected = {};
+      uiMode = "guided";
+      renderChatUi();
+    });
+
+    document.getElementById("chatContinue")?.addEventListener("click", async () => {
+      if (step.id === "welcome") {
+        await appendSupport("I am ready to start.", {
+          mode: "guided_welcome",
+          history: chatHistory(),
+        });
+      }
+      const adv = advanceChat(stepIndex, null, collected);
+      stepIndex = adv.nextIndex;
+      const nextStep = CHAT_STEPS[stepIndex];
+      if (nextStep) await pushMessage("bot", nextStep.bot);
+      renderChatUi();
+    });
+
+    document.querySelectorAll(".chat-starter").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const text = btn.getAttribute("data-starter");
+        if (!text || busy) return;
+        await pushMessage("user", text);
+        await appendSupport(text, { mode: "freeform", history: chatHistory() });
+        renderChatUi();
+        const log = document.getElementById("chatLog");
+        if (log) log.scrollTop = log.scrollHeight;
+      });
+    });
+
+    document.querySelectorAll(".chat-choice").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const val = btn.getAttribute("data-value");
+        const label = step.options.find((o) => o.value === val)?.label || val;
+        await pushMessage("user", label);
+        await appendSupport(label, {
+          mode: "guided_after_step",
+          step_id: step.id,
+          user_label: val,
+          collected: { ...collected, [step.field]: val },
+          history: chatHistory(),
+        });
+        const adv = advanceChat(stepIndex, val, collected);
+        collected = adv.collected;
+        stepIndex = adv.nextIndex;
+        const nextStep = CHAT_STEPS[stepIndex];
+        if (nextStep && nextStep.type !== "done") {
+          await pushMessage("bot", nextStep.bot);
+        }
+        if (adv.done || nextStep?.type === "done") {
+          await pushMessage("bot", CHAT_STEPS[CHAT_STEPS.length - 1].bot);
+          stepIndex = CHAT_STEPS.length - 1;
+        }
+        renderChatUi();
+      });
+    });
+
+    document.getElementById("chatTextForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const val = document.getElementById("chatText").value;
+      await pushMessage("user", val || "(skipped)");
+      await appendSupport(val || "(skipped)", {
+        mode: isOpenTextStep(step.id) ? "freeform" : "guided_after_step",
+        step_id: step.id,
+        user_label: val,
+        collected,
+        history: chatHistory(),
+      });
+      const adv = advanceChat(stepIndex, val, collected);
+      collected = adv.collected;
+      stepIndex = adv.nextIndex;
+      const nextStep = CHAT_STEPS[stepIndex];
+      if (nextStep && nextStep.type !== "done") await pushMessage("bot", nextStep.bot);
+      if (nextStep?.type === "done") await pushMessage("bot", nextStep.bot);
+      renderChatUi();
+    });
+
+    document.getElementById("supportChatForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("supportChatInput");
+      const val = (input?.value || "").trim();
+      if (!val) return;
+      await pushMessage("user", val);
+      input.value = "";
+      await appendSupport(val, { mode: "freeform", history: chatHistory() });
+      renderChatUi();
+      const log = document.getElementById("chatLog");
+      if (log) log.scrollTop = log.scrollHeight;
+    });
+  };
+
+  if (messages.length > 0) {
+    const lastBot = [...messages].reverse().find((m) => m.role === "bot");
+    if (lastBot?.text === CHAT_STEPS[CHAT_STEPS.length - 1].bot) {
+      stepIndex = CHAT_STEPS.length - 1;
+    }
+  }
+  renderChatUi();
+}

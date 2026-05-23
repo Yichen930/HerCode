@@ -1,0 +1,974 @@
+{
+  "generatedAt": "2026-05-19T12:20:25.091827+00:00",
+  "sources": {
+    "analysis_summary": "/Users/sophie/Desktop/BioHackzard/backup/analysis_output/analysis_summary.json",
+    "compare_summary": "/Users/sophie/Desktop/BioHackzard/backup/compare_output/pcos_vs_endo_summary.json",
+    "scrna_inventory": "/Users/sophie/Desktop/BioHackzard/backup/scRNA_analysis/single_cell_inventory_summary.json"
+  },
+  "pcosCohort": {
+    "n": 541,
+    "columnCount": 44,
+    "pcosLabeledCount": 177,
+    "pcosLabeledRate": 0.327,
+    "cvAccuracy": 0.871,
+    "cvPrecision": 0.758,
+    "cvRecall": 0.887,
+    "cvF1": 0.818,
+    "cvRocAuc": 0.942,
+    "cvConfusionMatrix": [
+      [
+        314,
+        50
+      ],
+      [
+        20,
+        157
+      ]
+    ],
+    "topCorrelates": [
+      "ovarian follicle counts (imaging)",
+      "skin darkening",
+      "excess hair growth",
+      "weight gain",
+      "irregular cycles",
+      "dietary patterns (fast food)",
+      "acne"
+    ]
+  },
+  "pcosTopCorrelations": [
+    {
+      "feature": "Follicle No. (R)",
+      "corr": 0.648
+    },
+    {
+      "feature": "Follicle No. (L)",
+      "corr": 0.603
+    },
+    {
+      "feature": "Skin darkening  (Y/N)",
+      "corr": 0.476
+    },
+    {
+      "feature": "hair growth (Y/N)",
+      "corr": 0.465
+    },
+    {
+      "feature": "Weight gain (Y/N)",
+      "corr": 0.441
+    },
+    {
+      "feature": "Cycle(R/I)",
+      "corr": 0.402
+    },
+    {
+      "feature": "Fast food  (Y/N)",
+      "corr": 0.378
+    },
+    {
+      "feature": "Pimples (Y/N)",
+      "corr": 0.286
+    },
+    {
+      "feature": "AMH(ng/mL)",
+      "corr": 0.264
+    },
+    {
+      "feature": "Weight (Kg)",
+      "corr": 0.212
+    }
+  ],
+  "pcosModelCoefPositive": [
+    {
+      "feature": "Follicle No. (R)",
+      "coef": 1.642
+    },
+    {
+      "feature": "hair growth (Y/N)",
+      "coef": 0.816
+    },
+    {
+      "feature": "Follicle No. (L)",
+      "coef": 0.722
+    },
+    {
+      "feature": "Cycle(R/I)",
+      "coef": 0.701
+    },
+    {
+      "feature": "Weight gain (Y/N)",
+      "coef": 0.67
+    },
+    {
+      "feature": "Pulse rate(bpm)",
+      "coef": 0.662
+    },
+    {
+      "feature": "Skin darkening  (Y/N)",
+      "coef": 0.526
+    },
+    {
+      "feature": "Pimples (Y/N)",
+      "coef": 0.414
+    }
+  ],
+  "pcosVsEndo": {
+    "pcosN": 177,
+    "endoN": 4079,
+    "differentiationAccuracy": 0.661,
+    "differentiationAuc": 0.726,
+    "pcosMeanAge": 30.1,
+    "endoMeanAge": 33.6,
+    "pcosMeanBmi": 25.5,
+    "endoMeanBmi": 23.4,
+    "pcosIrregularCycleRate": 0.537,
+    "endoIrregularCycleRate": 0.75,
+    "differentiationF1": 0.141
+  },
+  "pcosVsEndoDiffTests": [
+    {
+      "field": "Age (years)",
+      "pcos": "30.1",
+      "endo": "33.6",
+      "pValue": 2.8e-14,
+      "kind": "mean"
+    },
+    {
+      "field": "BMI",
+      "pcos": "25.5",
+      "endo": "23.4",
+      "pValue": 5.7e-09,
+      "kind": "mean"
+    },
+    {
+      "field": "Menstrual irregularity",
+      "pcos": "53.7%",
+      "endo": "75.0%",
+      "pValue": 3.8e-10,
+      "kind": "rate"
+    },
+    {
+      "field": "Hormone abnormality proxy",
+      "pcos": "60.5%",
+      "endo": "70.2%",
+      "pValue": 0.0074,
+      "kind": "rate"
+    }
+  ],
+  "differentiationRules": [
+    "Indicators leaning toward PCOS in this comparison: higher hormone abnormality proxy (LH/FSH>2 or AMH>4.5), higher BMI, lower age.",
+    "Indicators leaning toward Endometriosis in this comparison: lower menstrual irregularity rate (in this synthetic supplementary cohort) and comparatively lower hormone abnormality flag.",
+    "Important: Chronic pain and infertility are available only in the endometriosis file, so cross-disease rule quality is constrained by feature overlap.",
+    "Do not use this as medical diagnosis guidance; this is a data-level comparative exercise."
+  ],
+  "scrnaInventory": {
+    "endometriumLibraries": 2,
+    "endometriumCells": 10578,
+    "pcosLibraries": 20,
+    "pcosCells": 70223,
+    "genesPerMatrix": 36601,
+    "meanNnzPerCellEndo": 3640,
+    "meanNnzPerCellPcos": 3685,
+    "totalCells": 80801
+  },
+  "scrnaLibrarySamples": [
+    {
+      "dataset": "Endometrium",
+      "library": "UA_Endo12269811",
+      "cells": 5734,
+      "nnzPerCell": 3450
+    },
+    {
+      "dataset": "Endometrium",
+      "library": "UA_Endo12604667",
+      "cells": 4844,
+      "nnzPerCell": 3864
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc03-F",
+      "cells": 4663,
+      "nnzPerCell": 3002
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc27-F",
+      "cells": 5273,
+      "nnzPerCell": 2956
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc50-F",
+      "cells": 5285,
+      "nnzPerCell": 2922
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc26-C",
+      "cells": 2695,
+      "nnzPerCell": 3774
+    }
+  ],
+  "scrnaLibraryInventory": [
+    {
+      "dataset": "Endometrium",
+      "library": "UA_Endo12269811",
+      "arm": null,
+      "cells": 5734,
+      "nnzPerCell": 3450,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "Endometrium",
+      "library": "UA_Endo12604667",
+      "arm": null,
+      "cells": 4844,
+      "nnzPerCell": 3864,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc02-C",
+      "arm": "Control (C)",
+      "cells": 3361,
+      "nnzPerCell": 4120,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc02-F",
+      "arm": "Forskolin (F)",
+      "cells": 4051,
+      "nnzPerCell": 3601,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc03-C",
+      "arm": "Control (C)",
+      "cells": 3689,
+      "nnzPerCell": 4281,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc03-F",
+      "arm": "Forskolin (F)",
+      "cells": 4663,
+      "nnzPerCell": 3002,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc06-C",
+      "arm": "Control (C)",
+      "cells": 2600,
+      "nnzPerCell": 5061,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc06-F",
+      "arm": "Forskolin (F)",
+      "cells": 4126,
+      "nnzPerCell": 3537,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc10-C",
+      "arm": "Control (C)",
+      "cells": 2212,
+      "nnzPerCell": 4003,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc10-F",
+      "arm": "Forskolin (F)",
+      "cells": 4054,
+      "nnzPerCell": 2942,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc16-C",
+      "arm": "Control (C)",
+      "cells": 3035,
+      "nnzPerCell": 4336,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc16-F",
+      "arm": "Forskolin (F)",
+      "cells": 3147,
+      "nnzPerCell": 3782,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc26-C",
+      "arm": "Control (C)",
+      "cells": 2695,
+      "nnzPerCell": 3774,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc26-F",
+      "arm": "Forskolin (F)",
+      "cells": 2373,
+      "nnzPerCell": 3661,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc27-C",
+      "arm": "Control (C)",
+      "cells": 2845,
+      "nnzPerCell": 4283,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc27-F",
+      "arm": "Forskolin (F)",
+      "cells": 5273,
+      "nnzPerCell": 2956,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc31-C",
+      "arm": "Control (C)",
+      "cells": 2045,
+      "nnzPerCell": 4560,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc31-F",
+      "arm": "Forskolin (F)",
+      "cells": 4268,
+      "nnzPerCell": 3476,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc40-C",
+      "arm": "Control (C)",
+      "cells": 2050,
+      "nnzPerCell": 4861,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc40-F",
+      "arm": "Forskolin (F)",
+      "cells": 4177,
+      "nnzPerCell": 3274,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc50-C",
+      "arm": "Control (C)",
+      "cells": 4274,
+      "nnzPerCell": 4001,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc50-F",
+      "arm": "Forskolin (F)",
+      "cells": 5285,
+      "nnzPerCell": 2922,
+      "deepOnPortal": false
+    }
+  ],
+  "scrnaDeepScope": {
+    "inventoryLibraries": 22,
+    "deepRunsOnPortal": 2,
+    "deepRunLabels": [
+      "Endometrium \u2014 combined UMAP / Leiden (both supplementary libraries)",
+      "PCOS Mc26 \u2014 control vs forskolin UMAP / androgen-pathway comparison"
+    ],
+    "summary": "All 22 published 10x libraries are inventoried below (genes \u00d7 cells from MTX headers). Full Scanpy QC, clustering, and UMAP on this page cover endometrium and the Mc26 donor pair (representative forskolin stimulation design in the PCOS ovarian dataset). The remaining 18 PCOS libraries share the same study design (10 donors \u00d7 control/forskolin); re-running deep analysis for every library is supported offline via backup/scripts/scrna_deep_analysis.py."
+  },
+  "labCohortReference": [
+    {
+      "id": "amh_ng_ml",
+      "feature": "AMH(ng/mL)",
+      "kind": "numeric",
+      "meanNonPcos": 4.5,
+      "meanPcos": 7.8,
+      "pValue": 3.2e-07,
+      "correlation": 0.26386340015708215,
+      "modelCoef": null,
+      "hint": "Anti-M\u00fcllerian hormone; often higher in PCOS-labeled participants in this cohort. Interpret with age and antral follicle count.",
+      "searchTerms": [
+        "AMH(ng/mL)",
+        "AMH(ng/mL)"
+      ]
+    },
+    {
+      "id": "lh_miu_ml",
+      "feature": "LH(mIU/mL)",
+      "kind": "numeric",
+      "meanNonPcos": 2.6,
+      "meanPcos": 14.4,
+      "pValue": 0.3019,
+      "correlation": null,
+      "modelCoef": 0.335,
+      "hint": "Luteinizing hormone; discuss with FSH and clinical hyperandrogenism. Rotterdam workups often note elevated LH or LH/FSH pattern.",
+      "searchTerms": [
+        "LH(mIU/mL)",
+        "LH(mIU/mL)"
+      ]
+    },
+    {
+      "id": "fsh_miu_ml",
+      "feature": "FSH(mIU/mL)",
+      "kind": "numeric",
+      "meanNonPcos": 19.2,
+      "meanPcos": 5.2,
+      "pValue": 0.3132,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "Follicle-stimulating hormone; compare with LH and AMH. Low FSH relative to LH can appear in PCOS phenotypes.",
+      "searchTerms": [
+        "FSH(mIU/mL)",
+        "FSH(mIU/mL)"
+      ]
+    },
+    {
+      "id": "fsh_lh",
+      "feature": "FSH/LH",
+      "kind": "numeric",
+      "meanNonPcos": 7.7,
+      "meanPcos": 5.3,
+      "pValue": 0.5741,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "Precomputed ratio in dataset; values >2 are often cited in PCOS discussions\u2014verify against your lab\u2019s reference.",
+      "searchTerms": [
+        "FSH/LH",
+        "FSH/LH"
+      ]
+    },
+    {
+      "id": "bmi",
+      "feature": "BMI",
+      "kind": "numeric",
+      "meanNonPcos": 23.8,
+      "meanPcos": 25.5,
+      "pValue": 1e-05,
+      "correlation": 0.2001756813847585,
+      "modelCoef": null,
+      "hint": "Body mass index; PCOS-labeled group averaged higher than non-PCOS in this cohort, and higher than endometriosis-labeled cases in the harmonized comparison.",
+      "searchTerms": [
+        "BMI",
+        "BMI"
+      ],
+      "endoCompare": {
+        "field": "BMI",
+        "pcos": 25.5,
+        "endo": 23.4
+      }
+    },
+    {
+      "id": "age_yrs",
+      "feature": "Age (yrs)",
+      "kind": "numeric",
+      "meanNonPcos": 32.1,
+      "meanPcos": 30.1,
+      "pValue": 8.1e-05,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "Age in years; PCOS-labeled mean was younger than endometriosis-labeled mean in the harmonized comparison.",
+      "searchTerms": [
+        "Age (yrs)",
+        "Age (yrs)"
+      ],
+      "endoCompare": {
+        "field": "Age (years)",
+        "pcos": 30.1,
+        "endo": 33.6
+      }
+    },
+    {
+      "id": "follicle_no_r",
+      "feature": "Follicle No. (R)",
+      "kind": "numeric",
+      "meanNonPcos": 4.6,
+      "meanPcos": 10.8,
+      "pValue": 3e-46,
+      "correlation": 0.6483269560999778,
+      "modelCoef": 1.642,
+      "hint": "Antral follicle count (right ovary) on imaging; among the strongest correlates with PCOS label in this cohort.",
+      "searchTerms": [
+        "Follicle No. (R)",
+        "Follicle No. (R)"
+      ]
+    },
+    {
+      "id": "follicle_no_l",
+      "feature": "Follicle No. (L)",
+      "kind": "numeric",
+      "meanNonPcos": 4.4,
+      "meanPcos": 9.8,
+      "pValue": 1.1e-37,
+      "correlation": 0.6033461529569702,
+      "modelCoef": 0.722,
+      "hint": "Antral follicle count (left ovary); strongly associated with PCOS label in cohort models.",
+      "searchTerms": [
+        "Follicle No. (L)",
+        "Follicle No. (L)"
+      ]
+    },
+    {
+      "id": "cycle_r_i",
+      "feature": "Cycle(R/I)",
+      "kind": "numeric",
+      "meanNonPcos": 2.3,
+      "meanPcos": 3.1,
+      "pValue": 2.1e-17,
+      "correlation": 0.40164375375635875,
+      "modelCoef": 0.701,
+      "hint": "Cycle regularity code (higher = more irregular in this coding). Irregular cycles overlap PCOS and other conditions.",
+      "searchTerms": [
+        "Cycle(R/I)",
+        "Cycle(R/I)"
+      ]
+    },
+    {
+      "id": "cycle_length_days",
+      "feature": "Cycle length(days)",
+      "kind": "numeric",
+      "meanNonPcos": 5.1,
+      "meanPcos": 4.6,
+      "pValue": 0.0002,
+      "correlation": -0.17848004472178902,
+      "modelCoef": null,
+      "hint": "Self-reported cycle length; shorter average in PCOS-labeled group in this dataset.",
+      "searchTerms": [
+        "Cycle length(days)",
+        "Cycle length(days)"
+      ]
+    },
+    {
+      "id": "endometrium_mm",
+      "feature": "Endometrium (mm)",
+      "kind": "numeric",
+      "meanNonPcos": 8.3,
+      "meanPcos": 8.8,
+      "pValue": 0.0088,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "Endometrial thickness on imaging; modest cohort difference\u2014always interpret with cycle day and clinical context.",
+      "searchTerms": [
+        "Endometrium (mm)",
+        "Endometrium (mm)"
+      ]
+    },
+    {
+      "id": "tsh_miu_l",
+      "feature": "TSH (mIU/L)",
+      "kind": "numeric",
+      "meanNonPcos": 3.0,
+      "meanPcos": 2.9,
+      "pValue": 0.7894,
+      "correlation": null,
+      "modelCoef": 0.219,
+      "hint": "Thyroid-stimulating hormone; rule out thyroid-related cycle disturbance (not PCOS-specific).",
+      "searchTerms": [
+        "TSH (mIU/L)",
+        "TSH (mIU/L)"
+      ]
+    },
+    {
+      "id": "prl_ng_ml",
+      "feature": "PRL(ng/mL)",
+      "kind": "numeric",
+      "meanNonPcos": 24.3,
+      "meanPcos": 24.4,
+      "pValue": 0.9014,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "Prolactin; elevated prolactin can affect cycles\u2014consider if cycles irregular.",
+      "searchTerms": [
+        "PRL(ng/mL)",
+        "PRL(ng/mL)"
+      ]
+    },
+    {
+      "id": "rbs_mg_dl",
+      "feature": "RBS(mg/dl)",
+      "kind": "numeric",
+      "meanNonPcos": 99.2,
+      "meanPcos": 101.1,
+      "pValue": 0.3232,
+      "correlation": null,
+      "modelCoef": 0.231,
+      "hint": "Random blood glucose; metabolic screening context for PCOS phenotypes.",
+      "searchTerms": [
+        "RBS(mg/dl)",
+        "RBS(mg/dl)"
+      ]
+    },
+    {
+      "id": "hb_g_dl",
+      "feature": "Hb(g/dl)",
+      "kind": "numeric",
+      "meanNonPcos": 11.1,
+      "meanPcos": 11.3,
+      "pValue": 0.0389,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "Hemoglobin; general health marker in cohort.",
+      "searchTerms": [
+        "Hb(g/dl)",
+        "Hb(g/dl)"
+      ]
+    },
+    {
+      "id": "avg_f_size_l_mm",
+      "feature": "Avg. F size (L) (mm)",
+      "kind": "numeric",
+      "meanNonPcos": 14.7,
+      "meanPcos": 15.7,
+      "pValue": 0.0005,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "Avg. F size (L) (mm)",
+        "Avg. F size (L) (mm)"
+      ]
+    },
+    {
+      "id": "avg_f_size_r_mm",
+      "feature": "Avg. F size (R) (mm)",
+      "kind": "numeric",
+      "meanNonPcos": 15.2,
+      "meanPcos": 15.9,
+      "pValue": 0.0189,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "Avg. F size (R) (mm)",
+        "Avg. F size (R) (mm)"
+      ]
+    },
+    {
+      "id": "bp_diastolic_mmhg",
+      "feature": "BP _Diastolic (mmHg)",
+      "kind": "numeric",
+      "meanNonPcos": 76.8,
+      "meanPcos": 77.2,
+      "pValue": 0.3294,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "BP _Diastolic (mmHg)",
+        "BP _Diastolic (mmHg)"
+      ]
+    },
+    {
+      "id": "bp_systolic_mmhg",
+      "feature": "BP _Systolic (mmHg)",
+      "kind": "numeric",
+      "meanNonPcos": 114.6,
+      "meanPcos": 114.7,
+      "pValue": 0.8353,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "BP _Systolic (mmHg)",
+        "BP _Systolic (mmHg)"
+      ]
+    },
+    {
+      "id": "fast_food_y_n",
+      "feature": "Fast food  (Y/N)",
+      "kind": "binary",
+      "pValue": 3.6e-18,
+      "cramersV": 0.372,
+      "correlation": 0.3779329480148989,
+      "hint": "",
+      "searchTerms": [
+        "Fast food  (Y/N)",
+        "Fast food"
+      ]
+    },
+    {
+      "id": "hair_loss_y_n",
+      "feature": "Hair loss (Y/N)",
+      "kind": "binary",
+      "pValue": 8.5e-05,
+      "cramersV": 0.163,
+      "correlation": null,
+      "hint": "",
+      "searchTerms": [
+        "Hair loss (Y/N)",
+        "Hair loss"
+      ]
+    },
+    {
+      "id": "hip_inch",
+      "feature": "Hip(inch)",
+      "kind": "numeric",
+      "meanNonPcos": 37.5,
+      "meanPcos": 38.9,
+      "pValue": 0.0003,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "Hip(inch)",
+        "Hip(inch)"
+      ]
+    },
+    {
+      "id": "lh_fsh_ratio",
+      "feature": "LH/FSH ratio (computed)",
+      "kind": "derived",
+      "hint": "Enter LH and FSH below to compute. Ratio >2 is often discussed in PCOS workups; not a separate column in the cohort table.",
+      "searchTerms": [
+        "lh fsh",
+        "ratio",
+        "lh/fsh"
+      ],
+      "inputs": [
+        "LH(mIU/mL)",
+        "FSH(mIU/mL)"
+      ]
+    },
+    {
+      "id": "marraige_status_yrs",
+      "feature": "Marraige Status (Yrs)",
+      "kind": "numeric",
+      "meanNonPcos": 8.1,
+      "meanPcos": 6.9,
+      "pValue": 0.0082,
+      "correlation": null,
+      "modelCoef": -0.342,
+      "hint": "",
+      "searchTerms": [
+        "Marraige Status (Yrs)",
+        "Marraige Status (Yrs)"
+      ]
+    },
+    {
+      "id": "no_of_abortions",
+      "feature": "No. of abortions",
+      "kind": "numeric",
+      "meanNonPcos": 0.3,
+      "meanPcos": 0.2,
+      "pValue": 0.1409,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "No. of abortions",
+        "No. of abortions"
+      ]
+    },
+    {
+      "id": "prg_ng_ml",
+      "feature": "PRG(ng/mL)",
+      "kind": "numeric",
+      "meanNonPcos": 0.7,
+      "meanPcos": 0.4,
+      "pValue": 0.1452,
+      "correlation": null,
+      "modelCoef": -0.604,
+      "hint": "",
+      "searchTerms": [
+        "PRG(ng/mL)",
+        "PRG(ng/mL)"
+      ]
+    },
+    {
+      "id": "pimples_y_n",
+      "feature": "Pimples (Y/N)",
+      "kind": "binary",
+      "pValue": 5.3e-11,
+      "cramersV": 0.279,
+      "correlation": 0.28607667713408585,
+      "hint": "Acne sign; associated with PCOS label in cohort chi-square tests.",
+      "searchTerms": [
+        "Pimples (Y/N)",
+        "Pimples"
+      ]
+    },
+    {
+      "id": "pregnant_y_n",
+      "feature": "Pregnant (Y/N)",
+      "kind": "binary",
+      "pValue": 0.5845,
+      "cramersV": 0.0,
+      "correlation": null,
+      "hint": "",
+      "searchTerms": [
+        "Pregnant (Y/N)",
+        "Pregnant"
+      ]
+    },
+    {
+      "id": "pulse_rate_bpm",
+      "feature": "Pulse rate(bpm)",
+      "kind": "numeric",
+      "meanNonPcos": 73.0,
+      "meanPcos": 73.8,
+      "pValue": 0.0098,
+      "correlation": null,
+      "modelCoef": 0.662,
+      "hint": "",
+      "searchTerms": [
+        "Pulse rate(bpm)",
+        "Pulse rate(bpm)"
+      ]
+    },
+    {
+      "id": "rr_breaths_min",
+      "feature": "RR (breaths/min)",
+      "kind": "numeric",
+      "meanNonPcos": 19.2,
+      "meanPcos": 19.3,
+      "pValue": 0.3854,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "RR (breaths/min)",
+        "RR (breaths/min)"
+      ]
+    },
+    {
+      "id": "reg_exercise_y_n",
+      "feature": "Reg.Exercise (Y/N)",
+      "kind": "binary",
+      "pValue": 0.1575,
+      "cramersV": 0.043,
+      "correlation": null,
+      "hint": "",
+      "searchTerms": [
+        "Reg.Exercise (Y/N)",
+        "Reg.Exercise"
+      ]
+    },
+    {
+      "id": "skin_darkening_y_n",
+      "feature": "Skin darkening  (Y/N)",
+      "kind": "binary",
+      "pValue": 5.6e-28,
+      "cramersV": 0.47,
+      "correlation": 0.4757330238463864,
+      "hint": "Acanthosis nigricans\u2013type sign; associated with insulin resistance and PCOS label.",
+      "searchTerms": [
+        "Skin darkening  (Y/N)",
+        "Skin darkening"
+      ]
+    },
+    {
+      "id": "vit_d3_ng_ml",
+      "feature": "Vit D3 (ng/mL)",
+      "kind": "numeric",
+      "meanNonPcos": 29.3,
+      "meanPcos": 92.3,
+      "pValue": 0.1668,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "Vit D3 (ng/mL)",
+        "Vit D3 (ng/mL)"
+      ]
+    },
+    {
+      "id": "waist_inch",
+      "feature": "Waist(inch)",
+      "kind": "numeric",
+      "meanNonPcos": 33.4,
+      "meanPcos": 34.7,
+      "pValue": 0.0002,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "Waist(inch)",
+        "Waist(inch)"
+      ]
+    },
+    {
+      "id": "waist_hip_ratio",
+      "feature": "Waist:Hip Ratio",
+      "kind": "numeric",
+      "meanNonPcos": 0.9,
+      "meanPcos": 0.9,
+      "pValue": 0.7735,
+      "correlation": null,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "Waist:Hip Ratio",
+        "Waist:Hip Ratio"
+      ]
+    },
+    {
+      "id": "weight_kg",
+      "feature": "Weight (Kg)",
+      "kind": "numeric",
+      "meanNonPcos": 58.0,
+      "meanPcos": 63.0,
+      "pValue": 3.7e-06,
+      "correlation": 0.21193796580755195,
+      "modelCoef": null,
+      "hint": "",
+      "searchTerms": [
+        "Weight (Kg)",
+        "Weight (Kg)"
+      ]
+    },
+    {
+      "id": "weight_gain_y_n",
+      "feature": "Weight gain (Y/N)",
+      "kind": "binary",
+      "pValue": 2.9e-24,
+      "cramersV": 0.435,
+      "correlation": 0.441047267155595,
+      "hint": "Reported weight gain; associated with PCOS label in this cohort.",
+      "searchTerms": [
+        "Weight gain (Y/N)",
+        "Weight gain"
+      ]
+    },
+    {
+      "id": "hair_growth_y_n",
+      "feature": "hair growth (Y/N)",
+      "kind": "binary",
+      "pValue": 9.6e-27,
+      "cramersV": 0.459,
+      "correlation": 0.4646666251220084,
+      "hint": "Clinical hyperandrogenism sign (hirsutism); more frequent in PCOS-labeled group.",
+      "searchTerms": [
+        "hair growth (Y/N)",
+        "hair growth"
+      ]
+    }
+  ],
+  "figuresCopied": [
+    "patient-doctor-portal/research-figures/pcos-top-coefficients.png",
+    "patient-doctor-portal/research-figures/pcos-prediction-distribution.png",
+    "patient-doctor-portal/research-figures/pcos-vs-endo-features.png",
+    "patient-doctor-portal/research-figures/pcos-vs-endo-coefficients.png",
+    "patient-doctor-portal/research-figures/scrna/umap_endometrium.png",
+    "patient-doctor-portal/research-figures/scrna/umap_Mc26.png",
+    "patient-doctor-portal/research-figures/scrna/inventory_report.html"
+  ],
+  "researchDataJs": "patient-doctor-portal/js/researchData.js"
+}

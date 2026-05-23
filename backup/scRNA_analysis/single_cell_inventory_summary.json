@@ -1,0 +1,25 @@
+{
+  "format": "10x Cell Ranger filtered_feature_bc_matrix (matrix.mtx.gz, barcodes.tsv.gz, features.tsv.gz) nested in per-sample .tar / .tar.gz inside each ZIP",
+  "feature_reference": "GRCh38-style Cell Ranger gene list (Gene Expression); 36601 features in all inspected libraries",
+  "Endometrium": {
+    "libraries": 2,
+    "total_cells": 10578,
+    "mean_cells_per_library": 5289.0,
+    "median_cells_per_library": 5734.0,
+    "genes_per_matrix": 36601,
+    "mean_nnz_per_cell": 3639.5556816033277
+  },
+  "PCOS": {
+    "libraries": 20,
+    "total_cells": 70223,
+    "mean_cells_per_library": 3511.15,
+    "median_cells_per_library": 3689.0,
+    "genes_per_matrix": 36601,
+    "mean_nnz_per_cell": 3685.258661692038
+  },
+  "notes": [
+    "PCOS ZIP contains 20 libraries named Mc##-C and Mc##-F (10 donor codes \u00d7 two conditions); interpret C/F from the original publication.",
+    "Endometrium ZIP contains 2 libraries (UA_Endo\u2026 tar.gz).",
+    "This script does not load full count matrices; QC, normalization, and clustering require Scanpy/Seurat and sufficient RAM."
+  ]
+}

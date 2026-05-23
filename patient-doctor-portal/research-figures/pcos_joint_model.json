@@ -1,0 +1,383 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-19T16:45:31.354660+00:00",
+  "source": "(Main_Dataset)_PCOS_data_without_infertility.xlsx",
+  "n": 541,
+  "pcosLabeledCount": 177,
+  "featureCount": 37,
+  "intercept": -0.985706,
+  "cvRocAuc": 0.9488,
+  "disclaimer": "In-cohort logistic model (numeric features, median imputation). Research reference only \u2014 not external validation or individual diagnosis.",
+  "features": [
+    {
+      "id": "age_yrs",
+      "column": "Age (yrs)",
+      "feature": "Age (yrs)",
+      "kind": "numeric",
+      "median": 31.0,
+      "mean": 31.430684,
+      "std": 5.406002,
+      "coef": -0.096835
+    },
+    {
+      "id": "amh_ng_ml",
+      "column": "AMH(ng/mL)",
+      "feature": "AMH(ng/mL)",
+      "kind": "numeric",
+      "median": 3.7,
+      "mean": 5.620634,
+      "std": 5.871308,
+      "coef": 0.209891
+    },
+    {
+      "id": "avg_f_size_l_mm",
+      "column": "Avg. F size (L) (mm)",
+      "feature": "Avg. F size (L) (mm)",
+      "kind": "numeric",
+      "median": 15.0,
+      "mean": 15.018115,
+      "std": 3.563541,
+      "coef": 0.188045
+    },
+    {
+      "id": "avg_f_size_r_mm",
+      "column": "Avg. F size (R) (mm)",
+      "feature": "Avg. F size (R) (mm)",
+      "kind": "numeric",
+      "median": 16.0,
+      "mean": 15.451701,
+      "std": 3.315779,
+      "coef": 0.049018
+    },
+    {
+      "id": "bmi",
+      "column": "BMI",
+      "feature": "BMI",
+      "kind": "numeric",
+      "median": 24.238227,
+      "mean": 24.31936,
+      "std": 4.047065,
+      "coef": -0.071658
+    },
+    {
+      "id": "bp_diastolic_mmhg",
+      "column": "BP _Diastolic (mmHg)",
+      "feature": "BP _Diastolic (mmHg)",
+      "kind": "numeric",
+      "median": 80.0,
+      "mean": 76.927911,
+      "std": 5.568957,
+      "coef": -0.063674
+    },
+    {
+      "id": "bp_systolic_mmhg",
+      "column": "BP _Systolic (mmHg)",
+      "feature": "BP _Systolic (mmHg)",
+      "kind": "numeric",
+      "median": 110.0,
+      "mean": 114.661738,
+      "std": 7.377728,
+      "coef": -0.120051
+    },
+    {
+      "id": "cycle_length_days",
+      "column": "Cycle length(days)",
+      "feature": "Cycle length(days)",
+      "kind": "numeric",
+      "median": 5.0,
+      "mean": 4.94085,
+      "std": 1.490641,
+      "coef": -0.050991
+    },
+    {
+      "id": "cycle_r_i",
+      "column": "Cycle(R/I)",
+      "feature": "Cycle(R/I)",
+      "kind": "numeric",
+      "median": 2.0,
+      "mean": 2.560074,
+      "std": 0.901116,
+      "coef": 0.666056
+    },
+    {
+      "id": "endometrium_mm",
+      "column": "Endometrium (mm)",
+      "feature": "Endometrium (mm)",
+      "kind": "numeric",
+      "median": 8.5,
+      "mean": 8.475915,
+      "std": 2.163379,
+      "coef": 0.150461
+    },
+    {
+      "id": "fast_food_y_n",
+      "column": "Fast food (Y/N)",
+      "feature": "Fast food  (Y/N)",
+      "kind": "numeric",
+      "median": 1.0,
+      "mean": 0.515712,
+      "std": 0.499753,
+      "coef": 0.299827
+    },
+    {
+      "id": "follicle_no_l",
+      "column": "Follicle No. (L)",
+      "feature": "Follicle No. (L)",
+      "kind": "numeric",
+      "median": 5.0,
+      "mean": 6.12939,
+      "std": 4.225384,
+      "coef": 0.638565
+    },
+    {
+      "id": "follicle_no_r",
+      "column": "Follicle No. (R)",
+      "feature": "Follicle No. (R)",
+      "kind": "numeric",
+      "median": 6.0,
+      "mean": 6.641405,
+      "std": 4.432787,
+      "coef": 1.691115
+    },
+    {
+      "id": "fsh_miu_ml",
+      "column": "FSH(mIU/mL)",
+      "feature": "FSH(mIU/mL)",
+      "kind": "numeric",
+      "median": 4.85,
+      "mean": 14.601832,
+      "std": 216.821413,
+      "coef": -0.07025
+    },
+    {
+      "id": "fsh_lh",
+      "column": "FSH/LH",
+      "feature": "FSH/LH",
+      "kind": "numeric",
+      "median": 2.169231,
+      "mean": 6.9049,
+      "std": 60.635703,
+      "coef": -0.087658
+    },
+    {
+      "id": "hair_growth_y_n",
+      "column": "hair growth(Y/N)",
+      "feature": "hair growth (Y/N)",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.273567,
+      "std": 0.44579,
+      "coef": 0.793624
+    },
+    {
+      "id": "hair_loss_y_n",
+      "column": "Hair loss(Y/N)",
+      "feature": "Hair loss (Y/N)",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.452865,
+      "std": 0.497773,
+      "coef": 0.039578
+    },
+    {
+      "id": "hb_g_dl",
+      "column": "Hb(g/dl)",
+      "feature": "Hb(g/dl)",
+      "kind": "numeric",
+      "median": 11.0,
+      "mean": 11.160037,
+      "std": 0.866103,
+      "coef": 0.126147
+    },
+    {
+      "id": "hip_inch",
+      "column": "Hip(inch)",
+      "feature": "Hip(inch)",
+      "kind": "numeric",
+      "median": 38.0,
+      "mean": 37.992606,
+      "std": 3.964251,
+      "coef": 0.02509
+    },
+    {
+      "id": "lh_miu_ml",
+      "column": "LH(mIU/mL)",
+      "feature": "LH(mIU/mL)",
+      "kind": "numeric",
+      "median": 2.3,
+      "mean": 6.469919,
+      "std": 86.593113,
+      "coef": 0.343497
+    },
+    {
+      "id": "marraige_status_yrs",
+      "column": "Marraige Status (Yrs)",
+      "feature": "Marraige Status (Yrs)",
+      "kind": "numeric",
+      "median": 7.0,
+      "mean": 7.679667,
+      "std": 4.795037,
+      "coef": -0.408206
+    },
+    {
+      "id": "no_of_abortions",
+      "column": "No. of abortions",
+      "feature": "No. of abortions",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.288355,
+      "std": 0.691935,
+      "coef": -0.21549
+    },
+    {
+      "id": "pimples_y_n",
+      "column": "Pimples(Y/N)",
+      "feature": "Pimples (Y/N)",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.489834,
+      "std": 0.499897,
+      "coef": 0.417823
+    },
+    {
+      "id": "pregnant_y_n",
+      "column": "Pregnant(Y/N)",
+      "feature": "Pregnant (Y/N)",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.380776,
+      "std": 0.485578,
+      "coef": -0.111386
+    },
+    {
+      "id": "prg_ng_ml",
+      "column": "PRG(ng/mL)",
+      "feature": "PRG(ng/mL)",
+      "kind": "numeric",
+      "median": 0.32,
+      "mean": 0.610945,
+      "std": 3.805331,
+      "coef": -0.556152
+    },
+    {
+      "id": "prl_ng_ml",
+      "column": "PRL(ng/mL)",
+      "feature": "PRL(ng/mL)",
+      "kind": "numeric",
+      "median": 21.92,
+      "mean": 24.321497,
+      "std": 14.956549,
+      "coef": -0.00319
+    },
+    {
+      "id": "pulse_rate_bpm",
+      "column": "Pulse rate(bpm)",
+      "feature": "Pulse rate(bpm)",
+      "kind": "numeric",
+      "median": 72.0,
+      "mean": 73.247689,
+      "std": 4.426189,
+      "coef": 0.634659
+    },
+    {
+      "id": "rbs_mg_dl",
+      "column": "RBS(mg/dl)",
+      "feature": "RBS(mg/dl)",
+      "kind": "numeric",
+      "median": 100.0,
+      "mean": 99.83586,
+      "std": 18.542137,
+      "coef": 0.223891
+    },
+    {
+      "id": "reg_exercise_y_n",
+      "column": "Reg.Exercise(Y/N)",
+      "feature": "Reg.Exercise (Y/N)",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.247689,
+      "std": 0.43167,
+      "coef": 0.232493
+    },
+    {
+      "id": "rr_breaths_min",
+      "column": "RR (breaths/min)",
+      "feature": "RR (breaths/min)",
+      "kind": "numeric",
+      "median": 18.0,
+      "mean": 19.243993,
+      "std": 1.687068,
+      "coef": -0.154265
+    },
+    {
+      "id": "skin_darkening_y_n",
+      "column": "Skin darkening (Y/N)",
+      "feature": "Skin darkening  (Y/N)",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.306839,
+      "std": 0.461182,
+      "coef": 0.539529
+    },
+    {
+      "id": "tsh_miu_l",
+      "column": "TSH (mIU/L)",
+      "feature": "TSH (mIU/L)",
+      "kind": "numeric",
+      "median": 2.26,
+      "mean": 2.981281,
+      "std": 3.752059,
+      "coef": 0.213976
+    },
+    {
+      "id": "vit_d3_ng_ml",
+      "column": "Vit D3 (ng/mL)",
+      "feature": "Vit D3 (ng/mL)",
+      "kind": "numeric",
+      "median": 25.9,
+      "mean": 49.915874,
+      "std": 345.886481,
+      "coef": 0.108503
+    },
+    {
+      "id": "waist_inch",
+      "column": "Waist(inch)",
+      "feature": "Waist(inch)",
+      "kind": "numeric",
+      "median": 34.0,
+      "mean": 33.841035,
+      "std": 3.593568,
+      "coef": 0.018714
+    },
+    {
+      "id": "waist_hip_ratio",
+      "column": "Waist:Hip Ratio",
+      "feature": "Waist:Hip Ratio",
+      "kind": "numeric",
+      "median": 0.894737,
+      "mean": 0.8919,
+      "std": 0.046274,
+      "coef": 0.051564
+    },
+    {
+      "id": "weight_kg",
+      "column": "Weight (Kg)",
+      "feature": "Weight (Kg)",
+      "kind": "numeric",
+      "median": 59.0,
+      "mean": 59.637153,
+      "std": 11.01809,
+      "coef": 0.162664
+    },
+    {
+      "id": "weight_gain_y_n",
+      "column": "Weight gain(Y/N)",
+      "feature": "Weight gain (Y/N)",
+      "kind": "numeric",
+      "median": 0.0,
+      "mean": 0.377079,
+      "std": 0.484655,
+      "coef": 0.698905
+    }
+  ]
+}

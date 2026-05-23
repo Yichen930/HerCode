@@ -1,0 +1,21 @@
+{
+  "AMH(ng/mL)": "Anti-Müllerian hormone; often higher in PCOS-labeled participants in this cohort. Interpret with age and antral follicle count.",
+  "LH(mIU/mL)": "Luteinizing hormone; discuss with FSH and clinical hyperandrogenism. Rotterdam workups often note elevated LH or LH/FSH pattern.",
+  "FSH(mIU/mL)": "Follicle-stimulating hormone; compare with LH and AMH. Low FSH relative to LH can appear in PCOS phenotypes.",
+  "FSH/LH": "Precomputed ratio in dataset; values >2 are often cited in PCOS discussions—verify against your lab’s reference.",
+  "BMI": "Body mass index; PCOS-labeled group averaged higher than non-PCOS in this cohort, and higher than endometriosis-labeled cases in the harmonized comparison.",
+  "Age (yrs)": "Age in years; PCOS-labeled mean was younger than endometriosis-labeled mean in the harmonized comparison.",
+  "Follicle No. (R)": "Antral follicle count (right ovary) on imaging; among the strongest correlates with PCOS label in this cohort.",
+  "Follicle No. (L)": "Antral follicle count (left ovary); strongly associated with PCOS label in cohort models.",
+  "Cycle(R/I)": "Cycle regularity code (higher = more irregular in this coding). Irregular cycles overlap PCOS and other conditions.",
+  "Cycle length(days)": "Self-reported cycle length; shorter average in PCOS-labeled group in this dataset.",
+  "Endometrium (mm)": "Endometrial thickness on imaging; modest cohort difference—always interpret with cycle day and clinical context.",
+  "TSH (mIU/L)": "Thyroid-stimulating hormone; rule out thyroid-related cycle disturbance (not PCOS-specific).",
+  "PRL(ng/mL)": "Prolactin; elevated prolactin can affect cycles—consider if cycles irregular.",
+  "RBS(mg/dl)": "Random blood glucose; metabolic screening context for PCOS phenotypes.",
+  "Hb(g/dl)": "Hemoglobin; general health marker in cohort.",
+  "hair growth(Y/N)": "Clinical hyperandrogenism sign (hirsutism); more frequent in PCOS-labeled group.",
+  "Pimples(Y/N)": "Acne sign; associated with PCOS label in cohort chi-square tests.",
+  "Skin darkening (Y/N)": "Acanthosis nigricans–type sign; associated with insulin resistance and PCOS label.",
+  "Weight gain(Y/N)": "Reported weight gain; associated with PCOS label in this cohort."
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PCOS vs Endometriosis Differentiation Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+    h1, h2 { margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0 18px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+    th { background: #f6f6f6; }
+    img { max-width: 100%; border: 1px solid #ddd; border-radius: 6px; margin: 10px 0 20px; }
+    code { background: #f4f4f4; padding: 1px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>PCOS vs Endometriosis: Comparative Analysis</h1>
+  <p>Goal: use a PCOS-like analysis on the supplementary endometriosis dataset, then identify differentiating patterns.</p>
+
+  <h2>1) Confirmed-case comparison scope</h2>
+  <div class="grid">
+    <div class="card"><b>PCOS confirmed cases</b><br>177</div>
+    <div class="card"><b>Endometriosis confirmed cases</b><br>4079</div>
+    <div class="card"><b>Shared features used</b><br>Age, BMI, Menstrual irregularity, Hormone abnormality</div>
+  </div>
+
+  <h2>2) Matched-feature differences</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>PCOS</th><th>Endometriosis</th><th>PCOS - Endo</th><th>p-value</th></tr></thead>
+    <tbody>
+      <tr><td>Age (mean)</td><td>30.12</td><td>33.56</td><td>-3.44</td><td>2.79e-14</td></tr>
+      <tr><td>BMI (mean)</td><td>25.48</td><td>23.43</td><td>2.05</td><td>5.75e-09</td></tr>
+      <tr><td>Menstrual irregularity rate</td><td>53.7%</td><td>75.0%</td><td>-21.3%</td><td>3.82e-10</td></tr>
+      <tr><td>Hormone abnormality rate</td><td>60.5%</td><td>70.2%</td><td>-9.7%</td><td>0.0074</td></tr>
+    </tbody>
+  </table>
+
+  <img src="matched_feature_comparison.png" alt="matched feature comparison" />
+
+  <h2>3) Disease differentiation model (PCOS vs Endometriosis)</h2>
+  <div class="grid">
+    <div class="card"><b>Accuracy</b><br>0.661</div>
+    <div class="card"><b>F1</b><br>0.141</div>
+    <div class="card"><b>ROC-AUC</b><br>0.726</div>
+  </div>
+
+  <img src="differentiation_coefficients.png" alt="differentiation coefficients" />
+
+  <h2>4) Practical differentiation hints from this data</h2>
+  <ul>
+    <li>Indicators leaning toward PCOS in this comparison: higher hormone abnormality proxy (LH/FSH>2 or AMH>4.5), higher BMI, lower age.</li><li>Indicators leaning toward Endometriosis in this comparison: lower menstrual irregularity rate (in this synthetic supplementary cohort) and comparatively lower hormone abnormality flag.</li><li>Important: Chronic pain and infertility are available only in the endometriosis file, so cross-disease rule quality is constrained by feature overlap.</li><li>Do not use this as medical diagnosis guidance; this is a data-level comparative exercise.</li>
+  </ul>
+
+  <h2>5) Files included</h2>
+  <ul>
+    <li><code>pcos_vs_endo_summary.json</code></li>
+    <li><code>harmonized_positive_cohorts.csv</code></li>
+    <li><code>pcos_vs_endo_diff_tests.csv</code></li>
+    <li><code>disease_classifier_coefficients.csv</code></li>
+    <li><code>matched_feature_comparison.png</code></li>
+    <li><code>differentiation_coefficients.png</code></li>
+  </ul>
+</body>
+</html>

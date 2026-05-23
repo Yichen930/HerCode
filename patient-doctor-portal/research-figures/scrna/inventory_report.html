@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta name="hearher-inventory-report" content="v2-readable"/>
+<title>Single-cell library inventory — HearHer research</title>
+<style>
+:root {
+  --text: #1a1a22;
+  --muted: #5c5c6a;
+  --border: #e4e4ec;
+  --accent: #6b4f8a;
+  --accent-soft: #f3eff8;
+  --surface: #fafafb;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  background: var(--surface);
+  line-height: 1.5;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 48px; }
+.top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.back-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.back-link:hover { text-decoration: underline; }
+h1 { margin: 0 0 8px; font-size: 1.65rem; font-weight: 800; }
+.lead { margin: 0 0 20px; color: var(--muted); max-width: 42rem; }
+.scope {
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #e8dff5;
+  background: #faf7ff;
+  font-size: 0.9rem;
+}
+.scope strong { color: var(--accent); }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.card h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 800; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+.stat dt { margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+.stat dd { margin: 2px 0 0; font-size: 1.05rem; font-weight: 700; }
+.notes {
+  margin: 0 0 28px;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.88rem;
+}
+.notes h2 { margin: 0 0 8px; font-size: 0.95rem; }
+.notes ul { margin: 0; padding-left: 1.2rem; color: var(--muted); }
+.panel {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-head h2 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.panel-head p { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filter-btn:hover { border-color: var(--accent); }
+.filter-btn.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.table-scroll { overflow: auto; max-height: 520px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+th {
+  position: sticky;
+  top: 0;
+  background: #f6f6f9;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  z-index: 1;
+}
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.archive { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; }
+tr.row--deep { background: #faf7ff; }
+code { font-size: 0.82rem; background: #f0f0f5; padding: 2px 6px; border-radius: 4px; }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.badge--deep { background: var(--accent-soft); color: var(--accent); }
+.badge--listed { background: #eef4fb; color: #2a4a6f; }
+.foot {
+  margin-top: 14px;
+  padding: 0 18px 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.foot a { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <a class="back-link" href="/index.html#/doctor/research">← Back to Reference library</a>
+  </div>
+  <h1>Single-cell library inventory</h1>
+  <p class="lead">All 22 supplementary 10x libraries from the hackathon ZIP archives. Cell counts come from MTX headers only (no full matrix loaded).</p>
+  <p class="scope"><strong>Reference data only</strong> — not from patients using HearHer. The portal shows UMAP deep dives for <strong>4 libraries</strong> (combined endometrium + PCOS donor Mc26).</p>
+
+  <div class="cards">
+    <article class="card">
+      <h2>Endometrium</h2>
+      <dl class="stat-grid">
+        <div><dt>Libraries</dt><dd>2</dd></div>
+        <div><dt>Total cells</dt><dd>10,578</dd></div>
+        <div><dt>Mean cells / library</dt><dd>5,289</dd></div>
+        <div><dt>Mean UMIs / cell</dt><dd>3,640</dd></div>
+      </dl>
+    </article>
+    <article class="card">
+      <h2>PCOS ovarian</h2>
+      <dl class="stat-grid">
+        <div><dt>Libraries</dt><dd>20</dd></div>
+        <div><dt>Total cells</dt><dd>70,223</dd></div>
+        <div><dt>Mean cells / library</dt><dd>3,511</dd></div>
+        <div><dt>Mean UMIs / cell</dt><dd>3,685</dd></div>
+      </dl>
+    </article>
+    <article class="card">
+      <h2>Matrix format</h2>
+      <dl class="stat-grid">
+        <div style="grid-column: 1 / -1"><dt>Reference</dt><dd style="font-size:0.85rem;font-weight:600">GRCh38-style Cell Ranger gene list (Gene Expression); 36601 features in all inspected libraries</dd></div>
+        <div style="grid-column: 1 / -1"><dt>Structure</dt><dd style="font-size:0.8rem;font-weight:500;line-height:1.4">10x filtered_feature_bc_matrix inside per-sample tar archives within each ZIP</dd></div>
+      </dl>
+    </article>
+  </div>
+
+  <section class="notes">
+    <h2>Notes</h2>
+    <ul><li>PCOS ZIP contains 20 libraries named Mc##-C and Mc##-F (10 donor codes × two conditions); interpret C/F from the original publication.</li><li>Endometrium ZIP contains 2 libraries (UA_Endo… tar.gz).</li><li>This script does not load full count matrices; QC, normalization, and clustering require Scanpy/Seurat and sufficient RAM.</li></ul>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
+      <div>
+        <h2>Per-library table</h2>
+        <p id="row-count">Showing 22 libraries</p>
+      </div>
+      <div class="filters" role="group" aria-label="Filter table">
+        <button type="button" class="filter-btn is-active" data-filter="all">All</button>
+        <button type="button" class="filter-btn" data-filter="deep">UMAP on portal (4)</button>
+        <button type="button" class="filter-btn" data-filter="endo">Endometrium</button>
+        <button type="button" class="filter-btn" data-filter="pcos">PCOS</button>
+      </div>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Dataset</th>
+            <th>Library ID</th>
+            <th>Study arm</th>
+            <th>Cells</th>
+            <th>Mean UMIs/cell</th>
+            <th>Portal</th>
+            <th>Archive in ZIP</th>
+          </tr>
+        </thead>
+        <tbody>
+<tr class="row--deep" data-dataset="endo" data-deep="1">
+  <td>Endometrium</td>
+  <td><code>UA_Endo12269811</code></td>
+  <td>—</td>
+  <td class="num">5,734</td>
+  <td class="num">3,450</td>
+  <td><span class="badge badge--deep">UMAP on portal</span></td>
+  <td class="archive muted" title="UA_Endo12269811_FX0022.tar.gz">UA_Endo12269811_FX0022.tar.gz</td>
+</tr>
+<tr class="row--deep" data-dataset="endo" data-deep="1">
+  <td>Endometrium</td>
+  <td><code>UA_Endo12604667</code></td>
+  <td>—</td>
+  <td class="num">4,844</td>
+  <td class="num">3,864</td>
+  <td><span class="badge badge--deep">UMAP on portal</span></td>
+  <td class="archive muted" title="UA_Endo12604667_FX1130.tar.gz">UA_Endo12604667_FX1130.tar.gz</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc02-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">3,361</td>
+  <td class="num">4,120</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc02-C.tar">Mc02-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc02-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">4,051</td>
+  <td class="num">3,601</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc02-F.tar">Mc02-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc03-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">3,689</td>
+  <td class="num">4,281</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc03-C.tar">Mc03-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc03-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">4,663</td>
+  <td class="num">3,002</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc03-F.tar">Mc03-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc06-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">2,600</td>
+  <td class="num">5,061</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc06-C.tar">Mc06-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc06-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">4,126</td>
+  <td class="num">3,537</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc06-F.tar">Mc06-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc10-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">2,212</td>
+  <td class="num">4,003</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc10-C.tar">Mc10-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc10-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">4,054</td>
+  <td class="num">2,942</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc10-F.tar">Mc10-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc16-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">3,035</td>
+  <td class="num">4,336</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc16-C.tar">Mc16-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc16-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">3,147</td>
+  <td class="num">3,782</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc16-F.tar">Mc16-F.tar</td>
+</tr>
+<tr class="row--deep" data-dataset="pcos" data-deep="1">
+  <td>PCOS ovarian</td>
+  <td><code>Mc26-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">2,695</td>
+  <td class="num">3,775</td>
+  <td><span class="badge badge--deep">UMAP on portal</span></td>
+  <td class="archive muted" title="Mc26-C.tar">Mc26-C.tar</td>
+</tr>
+<tr class="row--deep" data-dataset="pcos" data-deep="1">
+  <td>PCOS ovarian</td>
+  <td><code>Mc26-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">2,373</td>
+  <td class="num">3,661</td>
+  <td><span class="badge badge--deep">UMAP on portal</span></td>
+  <td class="archive muted" title="Mc26-F.tar">Mc26-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc27-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">2,845</td>
+  <td class="num">4,283</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc27-C.tar">Mc27-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc27-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">5,273</td>
+  <td class="num">2,956</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc27-F.tar">Mc27-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc31-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">2,045</td>
+  <td class="num">4,560</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc31-C.tar">Mc31-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc31-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">4,268</td>
+  <td class="num">3,476</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc31-F.tar">Mc31-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc40-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">2,050</td>
+  <td class="num">4,861</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc40-C.tar">Mc40-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc40-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">4,177</td>
+  <td class="num">3,274</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc40-F.tar">Mc40-F.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc50-C</code></td>
+  <td>Control (C)</td>
+  <td class="num">4,274</td>
+  <td class="num">4,001</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc50-C.tar">Mc50-C.tar</td>
+</tr>
+<tr class="" data-dataset="pcos" data-deep="0">
+  <td>PCOS ovarian</td>
+  <td><code>Mc50-F</code></td>
+  <td>Forskolin (F)</td>
+  <td class="num">5,285</td>
+  <td class="num">2,922</td>
+  <td><span class="badge badge--listed">Listed only</span></td>
+  <td class="archive muted" title="Mc50-F.tar">Mc50-F.tar</td>
+</tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="foot">Machine-readable export: <a href="single_cell_sample_inventory.csv">single_cell_sample_inventory.csv</a></p>
+  </section>
+</div>
+<script>
+(function () {
+  const rows = document.querySelectorAll("tbody tr[data-dataset]");
+  const countEl = document.getElementById("row-count");
+  const buttons = document.querySelectorAll("[data-filter]");
+  function apply(filter) {
+    let n = 0;
+    rows.forEach((row) => {
+      const ds = row.getAttribute("data-dataset");
+      const deep = row.getAttribute("data-deep") === "1";
+      const show = filter === "all" || (filter === "deep" && deep) || ds === filter;
+      row.hidden = !show;
+      if (show) n++;
+    });
+    if (countEl) countEl.textContent = "Showing " + n + " of " + rows.length + " libraries";
+    buttons.forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-filter") === filter));
+  }
+  buttons.forEach((b) => b.addEventListener("click", () => apply(b.getAttribute("data-filter"))));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+{
+  "conditionEducation": [
+    {
+      "id": "pcos",
+      "name": "PCOS (polycystic ovary syndrome)",
+      "summary": "A heterogeneous endocrine–metabolic disorder involving ovulatory dysfunction, androgen excess signs, and/or polycystic ovarian morphology on imaging—not “just bad periods.”",
+      "commonSymptoms": [
+        "Irregular or absent ovulation / cycles",
+        "Acne, excess hair growth, or hair thinning",
+        "Weight gain or insulin resistance",
+        "Elevated androgens or AMH on labs (clinician-ordered)"
+      ],
+      "mechanisms": "Hyperandrogenemia, insulin resistance, and disrupted GnRH/LH signaling in ovarian theca and granulosa cells (supported by scRNA-seq studies in this project’s supplementary data).",
+      "whenToSeekCare": "Symptoms persisting ≥6–12 months, fertility goals, metabolic risk, or when symptoms are dismissed as “normal stress/hormones” without evaluation."
+    },
+    {
+      "id": "endometriosis",
+      "name": "Endometriosis",
+      "summary": "Estrogen-dependent tissue similar to the uterine lining growing outside the uterus, often causing inflammatory pelvic pain.",
+      "commonSymptoms": [
+        "Cyclical pelvic pain (often worse with menses)",
+        "Pain with bowel movements or urination during menses",
+        "Heavy or irregular bleeding (overlap with PCOS possible)",
+        "Infertility (strong association in cohort data)"
+      ],
+      "mechanisms": "Chronic inflammatory microenvironment (e.g., CXCL12, IL6), progesterone resistance in lesions; eutopic endometrium may also show inflammatory signatures.",
+      "whenToSeekCare": "Pain limiting daily life, progressive worsening, or symptoms not responding to first-line therapies—referral to gynecology for imaging/laparoscopy discussion."
+    },
+    {
+      "id": "thyroid",
+      "name": "Thyroid / prolactin disorders",
+      "summary": "Can mimic irregular cycles and metabolic symptoms; often ruled out with targeted labs.",
+      "commonSymptoms": ["Irregular bleeding", "Weight change", "Fatigue", "Hair changes"],
+      "mechanisms": "Thyroid hormones and prolactin affect GnRH pulsatility and ovulation.",
+      "whenToSeekCare": "Persistent cycle changes with systemic symptoms—ask about TSH and prolactin."
+    },
+    {
+      "id": "hyperprolactinemia",
+      "name": "Non-PCOS hyperandrogenism",
+      "summary": "Adrenal or other androgen sources can overlap with acne/hirsutism without PCOS.",
+      "commonSymptoms": ["Acne", "Hair changes", "Irregular cycles (less specific)"],
+      "mechanisms": "Requires clinician-directed workup (DHEA-S, 17-OHP, etc.).",
+      "whenToSeekCare": "Rapid virilization or atypical lab pattern."
+    }
+  ],
+  "symptomDifferentiationBase": [
+    {
+      "topic": "Pelvic pain",
+      "pcos": "May occur but is less often the primary hallmark; pain is not always cyclical.",
+      "endo": "Often cyclical, may worsen with menses; bowel/bladder pain during periods is a classic clue.",
+      "other": "IBS, PID, adenomyosis, musculoskeletal causes."
+    },
+    {
+      "topic": "Cycles",
+      "pcos": "Irregular ovulation / long cycles common; anovulatory bleeding patterns.",
+      "endo": "Can be irregular or heavy; dysmenorrhea prominent.",
+      "other": "Thyroid disease, stress, perimenopause, medications."
+    },
+    {
+      "topic": "Skin / hair",
+      "pcos": "Androgen-excess pattern (acne, hirsutism) is a core feature in many phenotypes.",
+      "endo": "Less specific; not the primary diagnostic anchor.",
+      "other": "Medications, adrenal disorders."
+    },
+    {
+      "topic": "Fertility",
+      "pcos": "Anovulation is a common mechanism.",
+      "endo": "Structural/inflammatory factors; strong association in supplementary endometriosis cohort.",
+      "other": "Male factor, tubal disease, age-related decline."
+    }
+  ]
+}

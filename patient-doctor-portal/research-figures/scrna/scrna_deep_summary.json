@@ -1,0 +1,192 @@
+{
+  "available": true,
+  "generated": true,
+  "analyses": [
+    {
+      "dataset": "endometrium",
+      "label": "Endometrium (supplementary)",
+      "library_filter": null,
+      "pair_prefix": null,
+      "cells_loaded": 10578,
+      "cells_after_qc": 8000,
+      "genes_after_hvg": 2000,
+      "n_clusters": 12,
+      "mean_marker_scores": {
+        "Granulosa": -0.0075,
+        "Theca": -0.001,
+        "Stromal": 0.3214,
+        "Epithelial": -0.0083,
+        "Immune": 0.0075,
+        "Endothelial": -0.002,
+        "Proliferative": 0.0063,
+        "Secretory": -0.03
+      },
+      "clusters": [
+        {
+          "cluster": "0",
+          "n_cells": 1828,
+          "pct": 22.8,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "1",
+          "n_cells": 1333,
+          "pct": 16.7,
+          "top_marker_set": "Epithelial"
+        },
+        {
+          "cluster": "2",
+          "n_cells": 1225,
+          "pct": 15.3,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "3",
+          "n_cells": 869,
+          "pct": 10.9,
+          "top_marker_set": "Secretory"
+        },
+        {
+          "cluster": "4",
+          "n_cells": 712,
+          "pct": 8.9,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "5",
+          "n_cells": 540,
+          "pct": 6.8,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "6",
+          "n_cells": 483,
+          "pct": 6.0,
+          "top_marker_set": "Immune"
+        },
+        {
+          "cluster": "7",
+          "n_cells": 379,
+          "pct": 4.7,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "8",
+          "n_cells": 361,
+          "pct": 4.5,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "9",
+          "n_cells": 170,
+          "pct": 2.1,
+          "top_marker_set": "Immune"
+        },
+        {
+          "cluster": "10",
+          "n_cells": 67,
+          "pct": 0.8,
+          "top_marker_set": "Endothelial"
+        },
+        {
+          "cluster": "11",
+          "n_cells": 33,
+          "pct": 0.4,
+          "top_marker_set": "Stromal"
+        }
+      ],
+      "figures": {
+        "umap": "umap_endometrium.png",
+        "marker_heatmap": "marker_heatmap_endometrium.png"
+      },
+      "portal_umap": "/research-figures/scrna/umap_endometrium.png",
+      "portal_heatmap": "/research-figures/scrna/marker_heatmap_endometrium.png"
+    },
+    {
+      "dataset": "pcos",
+      "label": "PCOS ovarian (supplementary)",
+      "library_filter": null,
+      "pair_prefix": "Mc26",
+      "cells_loaded": 5068,
+      "cells_after_qc": 4996,
+      "genes_after_hvg": 2000,
+      "n_clusters": 8,
+      "mean_marker_scores": {
+        "Granulosa": 0.0022,
+        "Theca": -0.1263,
+        "Stromal": 0.6905,
+        "Epithelial": 0.0723,
+        "Immune": 0.0002,
+        "Endothelial": -0.0007,
+        "Proliferative": 0.0013,
+        "Secretory": -0.0004
+      },
+      "clusters": [
+        {
+          "cluster": "0",
+          "n_cells": 1397,
+          "pct": 28.0,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "1",
+          "n_cells": 1270,
+          "pct": 25.4,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "2",
+          "n_cells": 682,
+          "pct": 13.7,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "3",
+          "n_cells": 608,
+          "pct": 12.2,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "4",
+          "n_cells": 480,
+          "pct": 9.6,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "5",
+          "n_cells": 335,
+          "pct": 6.7,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "6",
+          "n_cells": 203,
+          "pct": 4.1,
+          "top_marker_set": "Stromal"
+        },
+        {
+          "cluster": "7",
+          "n_cells": 21,
+          "pct": 0.4,
+          "top_marker_set": "Stromal"
+        }
+      ],
+      "figures": {
+        "umap": "umap_Mc26.png",
+        "marker_heatmap": "marker_heatmap_Mc26.png"
+      },
+      "forskolin_comparison": {
+        "donor": "Mc26",
+        "cells_control": 2681,
+        "cells_forskolin": 2315,
+        "mean_log_expr_androgen_biosynthesis_genes": {
+          "control": 0.10209260135889053,
+          "forskolin": 0.42623773217201233
+        },
+        "interpretation": "Educational: higher mean log-expression of androgen biosynthesis markers under forskolin vs control in this donor subset."
+      },
+      "portal_umap": "/research-figures/scrna/umap_Mc26.png",
+      "portal_heatmap": "/research-figures/scrna/marker_heatmap_Mc26.png"
+    }
+  ]
+}

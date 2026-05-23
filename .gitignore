@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.sqlite3
+patient-doctor-portal/data/
+.env
+patient-doctor-portal/.env
+dataset/
+patient-doctor-portal-demo.zip
+patient-doctor-portal/.pydeps/
+backup/scRNA_analysis/deep/_cache/

@@ -1,0 +1,46 @@
+{
+  "sample_sizes_confirmed_cases": {
+    "pcos_confirmed": 177,
+    "endometriosis_confirmed": 4079
+  },
+  "difference_tests": {
+    "age": {
+      "pcos_mean": 30.124293785310734,
+      "endo_mean": 33.564108850208385,
+      "difference": -3.439815064897651,
+      "p_value": 2.7927070576210682e-14
+    },
+    "bmi": {
+      "pcos_mean": 25.48111758852941,
+      "endo_mean": 23.429395990249482,
+      "difference": 2.0517215982799293,
+      "p_value": 5.746455305712554e-09
+    },
+    "menstrual_irregularity": {
+      "pcos_rate": 0.536723163841808,
+      "endo_rate": 0.7501838685952439,
+      "difference": -0.21346070475343593,
+      "p_value": 3.8227887565186873e-10,
+      "chi2": 39.201334404265566
+    },
+    "hormone_level_abnormality": {
+      "pcos_rate": 0.6045197740112994,
+      "endo_rate": 0.7018877175778377,
+      "difference": -0.09736794356653833,
+      "p_value": 0.007403413088632827,
+      "chi2": 7.172388700705859
+    }
+  },
+  "disease_differentiation_model_metrics": {
+    "accuracy": 0.6614191729323309,
+    "f1": 0.14072748956469885,
+    "roc_auc": 0.7261694527433471,
+    "pcos_positive_rate_in_combined": 0.041588345864661654
+  },
+  "differentiation_rules": [
+    "Indicators leaning toward PCOS in this comparison: higher hormone abnormality proxy (LH/FSH>2 or AMH>4.5), higher BMI, lower age.",
+    "Indicators leaning toward Endometriosis in this comparison: lower menstrual irregularity rate (in this synthetic supplementary cohort) and comparatively lower hormone abnormality flag.",
+    "Important: Chronic pain and infertility are available only in the endometriosis file, so cross-disease rule quality is constrained by feature overlap.",
+    "Do not use this as medical diagnosis guidance; this is a data-level comparative exercise."
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "dataset": {
+    "rows": 541,
+    "columns": 44
+  },
+  "class_balance": {
+    "pcos_count": 177,
+    "non_pcos_count": 364,
+    "pcos_rate": 0.32717190388170053
+  },
+  "missing_top10": {
+    "Fast food (Y/N)": 1,
+    "Marraige Status (Yrs)": 1
+  },
+  "top_correlations": [
+    {
+      "feature": "Follicle No. (R)",
+      "corr": 0.6483269560999778
+    },
+    {
+      "feature": "Follicle No. (L)",
+      "corr": 0.6033461529569702
+    },
+    {
+      "feature": "Skin darkening (Y/N)",
+      "corr": 0.4757330238463864
+    },
+    {
+      "feature": "hair growth(Y/N)",
+      "corr": 0.4646666251220084
+    },
+    {
+      "feature": "Weight gain(Y/N)",
+      "corr": 0.441047267155595
+    },
+    {
+      "feature": "Cycle(R/I)",
+      "corr": 0.40164375375635875
+    },
+    {
+      "feature": "Fast food (Y/N)",
+      "corr": 0.3779329480148989
+    },
+    {
+      "feature": "Pimples(Y/N)",
+      "corr": 0.28607667713408585
+    },
+    {
+      "feature": "AMH(ng/mL)",
+      "corr": 0.26386340015708215
+    },
+    {
+      "feature": "Weight (Kg)",
+      "corr": 0.21193796580755195
+    },
+    {
+      "feature": "BMI",
+      "corr": 0.2001756813847585
+    },
+    {
+      "feature": "Cycle length(days)",
+      "corr": -0.17848004472178902
+    }
+  ],
+  "model_metrics_5fold_cv": {
+    "accuracy": 0.8706099815157117,
+    "precision": 0.7584541062801933,
+    "recall": 0.8870056497175142,
+    "f1": 0.8177083333333334,
+    "roc_auc": 0.9424939467312348,
+    "confusion_matrix": [
+      [
+        314,
+        50
+      ],
+      [
+        20,
+        157
+      ]
+    ]
+  },
+  "top_positive_coefficients": [
+    {
+      "feature": "num__Follicle No. (R)",
+      "coef": 1.6415583765443578
+    },
+    {
+      "feature": "num__hair growth(Y/N)",
+      "coef": 0.8155102277764391
+    },
+    {
+      "feature": "num__Follicle No. (L)",
+      "coef": 0.7224627618753814
+    },
+    {
+      "feature": "num__Cycle(R/I)",
+      "coef": 0.7011638478955625
+    },
+    {
+      "feature": "num__Weight gain(Y/N)",
+      "coef": 0.6702333183802722
+    },
+    {
+      "feature": "num__Pulse rate(bpm)",
+      "coef": 0.6623956290772259
+    },
+    {
+      "feature": "num__Skin darkening (Y/N)",
+      "coef": 0.5264562790477313
+    },
+    {
+      "feature": "num__Pimples(Y/N)",
+      "coef": 0.4139369576628405
+    }
+  ],
+  "top_negative_coefficients": [
+    {
+      "feature": "num__PRG(ng/mL)",
+      "coef": -0.6035831296037817
+    },
+    {
+      "feature": "num__Marraige Status (Yrs)",
+      "coef": -0.3421883130732844
+    }
+  ]
+}
