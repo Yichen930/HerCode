@@ -1,108 +1,108 @@
 /**
- * Non-diagnostic educational copy from structured answers.
+ * Non-diagnostic educational copy from structured wellness answers (oncology between-visit).
  */
-
-import { buildScoringBlocks } from "./symptomScoring.js";
 
 /** @typedef {{ variant: "disclaimer" | "important" | "note" | "footer", title?: string, text: string }} SummaryBlock */
 
+const PHASE_LABELS = {
+  newly_diagnosed: "newly diagnosed or waiting to start treatment",
+  active_treatment: "active treatment (surgery, chemo, radiation, or hormone therapy)",
+  post_treatment: "recently finished a treatment phase",
+  survivorship: "survivorship or long-term follow-up",
+};
+
+const MOOD_LABELS = {
+  high_anxiety: "high anxiety or fear",
+  low_mood: "low mood or grief",
+  mixed: "mixed emotions",
+  okay: "relatively steady mood",
+};
+
 /**
  * @param {Record<string, string>} answers
- * @param {Array<{ answers?: Record<string, string> }>} [priorSubmissions]
  * @returns {{ blocks: SummaryBlock[], plainText: string }}
  */
-export function buildPatientSummary(answers, priorSubmissions = []) {
+export function buildPatientSummary(answers, _priorSubmissions = []) {
   /** @type {SummaryBlock[]} */
   const blocks = [];
 
   blocks.push({
     variant: "disclaimer",
     title: "Read this first",
-    text: "This summary is for general education only. It is not a medical diagnosis and does not replace a clinician’s assessment, examination, or tests.",
+    text: "This summary is for emotional and visit preparation only. It is not medical advice, does not interpret test results, and does not replace your oncologist, counsellor, or care team.",
   });
 
-  const cycle = answers.cycleRegularity;
-  if (cycle === "irregular") {
-    blocks.push({
-      variant: "important",
-      title: "Menstrual pattern",
-      text: "You reported irregular cycles. Irregular bleeding can reflect anovulation (often discussed in PCOS), thyroid disease, stress, perimenopause, or other causes. Many people normalize irregular bleeding for years—if this is persistent, ask about ovulation, androgens, TSH, and pelvic ultrasound.",
-    });
-  } else if (cycle === "regular") {
+  const phase = answers.treatmentPhase;
+  if (phase && PHASE_LABELS[phase]) {
     blocks.push({
       variant: "note",
-      title: "Menstrual pattern",
-      text: "You reported relatively regular cycles. Regular cycles do not rule out endometriosis, adenomyosis, or mild androgen excess.",
+      title: "Where you are in care",
+      text: `You indicated you are in a phase of ${PHASE_LABELS[phase]}. Many people feel uncertainty between appointments during transitions — it is okay to ask your team what to expect next.`,
     });
   }
 
-  const pain = answers.painLevel;
-  if (pain === "severe" || answers.painTiming === "progressive") {
+  const mood = answers.mood;
+  if (mood === "high_anxiety" || mood === "mixed") {
     blocks.push({
       variant: "important",
-      title: "Pelvic pain",
-      text: "You indicated severe or progressive pelvic pain. Strong or worsening pain should be evaluated promptly in person (urgent care or emergency services if red-flag symptoms are present).",
+      title: "Emotional wellbeing",
+      text: "You reported anxiety, fear, or mixed emotions between visits. These feelings are common after a breast cancer diagnosis and do not mean you are failing. You might tell your team: “I need help understanding what is normal anxiety versus what needs urgent attention.”",
     });
-  } else if (pain === "mild" || pain === "moderate") {
-    const cyclical = answers.painTiming === "cyclical";
+  } else if (mood === "low_mood") {
+    blocks.push({
+      variant: "important",
+      title: "Emotional wellbeing",
+      text: "You reported low mood or grief. This can be part of the journey — and it still deserves support. Ask about counsellor referrals, support groups, or BCF programmes if available in your area.",
+    });
+  }
+
+  const sleep = answers.sleep;
+  if (sleep === "poor") {
     blocks.push({
       variant: "note",
-      title: "Pelvic pain",
-      text: cyclical
-        ? "You reported pelvic pain that worsens around menses. Cyclical pain is a hallmark feature discussed in endometriosis education, but adenomyosis and other causes exist—note location, duration, and bowel/bladder timing for your visit."
-        : "You reported pelvic pain. Tracking timing with menses, bowel/bladder symptoms, and daily impact helps distinguish overlapping conditions.",
+      title: "Sleep",
+      text: "Poor sleep can worsen anxiety and fatigue during treatment. Mention sleep changes to your team — they may suggest practical adjustments or refer you for supportive care (not something you have to solve alone).",
     });
   }
 
-  if (answers.skinHair === "yes") {
+  const side = answers.sideEffects;
+  if (side === "significant") {
     blocks.push({
       variant: "important",
-      title: "Skin / hair (androgen-related signs)",
-      text: "You noted skin or hair changes (acne, excess hair, or thinning). In PCOS phenotypes, androgen excess is a core discussion point; labs (testosterone, DHEA-S) and history distinguish PCOS from adrenal or medication causes.",
+      title: "Side effects or physical discomfort",
+      text: "You reported significant side effects or discomfort. Contact your oncology team if symptoms are new, rapidly worsening, or worrying you — do not wait for a routine visit if you are unsure. Seek emergency care for chest pain, difficulty breathing, high fever, or other acute concerns.",
     });
-  }
-
-  if (answers.weightChange === "yes") {
+  } else if (side === "some") {
     blocks.push({
       variant: "note",
-      title: "Weight change",
-      text: "You reported recent weight gain or difficulty losing weight. Insulin resistance and metabolic risk are common discussion topics in PCOS care—not moral failure, and worth screening with glucose/HbA1c when clinically appropriate.",
+      title: "Side effects or physical discomfort",
+      text: "You noted some side effects or discomfort. Tracking what happens on treatment days versus rest days can help your next conversation — you do not need medical terminology, just honest descriptions.",
     });
   }
 
-  if (answers.heavyBleeding === "yes") {
-    blocks.push({
-      variant: "important",
-      title: "Heavy bleeding",
-      text: "You reported heavy menstrual bleeding. This can occur in PCOS, fibroids, bleeding disorders, and endometriosis/adenomyosis. Seek urgent care if soaking pads hourly, fainting, or postpartum/heavy bleeding with dizziness.",
-    });
-  }
-
-  if (answers.bowelBladder === "yes") {
-    blocks.push({
-      variant: "important",
-      title: "Bowel / bladder",
-      text: "You reported bowel or bladder symptoms associated with your cycle. Cyclical GI or urinary symptoms are often highlighted in endometriosis education; deep endometriosis may need imaging and specialist referral.",
-    });
-  }
-
-  if (answers.fertilityConcern === "yes") {
+  if (answers.informationOverload === "yes" || answers.informationOverload === "sometimes") {
     blocks.push({
       variant: "note",
-      title: "Fertility",
-      text: "You indicated fertility concerns. PCOS-related anovulation and endometriosis-related inflammation are different mechanisms—early referral to reproductive endocrinology can shorten time-to-diagnosis.",
+      title: "Information overload",
+      text: "Feeling overwhelmed by information is very common. You can ask your doctor to prioritise the top three things to focus on before your next visit — you do not need to research everything at once.",
     });
   }
 
-  blocks.push(...buildScoringBlocks(answers, priorSubmissions));
+  if (answers.notes) {
+    blocks.push({
+      variant: "note",
+      title: "In your words",
+      text: answers.notes,
+    });
+  }
 
   blocks.push({
     variant: "footer",
     title: "Bottom line",
-    text: "Overlapping symptoms are common. Rotterdam/Amsterdam criteria and imaging are used clinically; this tool only helps you prepare questions. Bring a symptom timeline and ask what conditions are being ruled in or out.",
+    text: "Bring this log to help you remember what mattered between appointments. This tool supports reflection and questions — it does not diagnose or recommend treatment changes.",
   });
 
-  const plainText = blocks.map((b) => b.text).join("\n\n");
+  const plainText = blocks.map((b) => (b.title ? `${b.title}: ${b.text}` : b.text)).join("\n\n");
 
   return { blocks, plainText };
 }

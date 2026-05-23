@@ -1,17 +1,16 @@
 /**
- * Guided emotional-support conversation (rule-based).
- * Does NOT duplicate structured check-in symptom fields — use check-in for that.
+ * Guided emotional-support conversation between oncology touchpoints (non-medical).
  */
 
 export const CHAT_STEPS = [
   {
     id: "welcome",
-    bot: "Hi — this is a private space for stress, feelings, and preparing to talk with a clinician. We will not repeat the symptom questionnaire here; use Check-in in the menu when you are ready to log cycles, pain, and similar details.",
+    bot: "Hi — this is a private space for feelings between medical appointments. We will not repeat your wellness log here; use Wellness log in the menu for mood, sleep, and side effects.",
     type: "continue",
   },
   {
     id: "emotionalIntro",
-    bot: "First: how this has felt emotionally. Many people live with worry, shame, or burnout for years before getting answers—that is more common than you might think.",
+    bot: "First: how this has felt emotionally. After a breast cancer diagnosis, anxiety, fear, and grief between touchpoints are very common — more than many people expect.",
     type: "continue",
   },
   {
@@ -28,7 +27,7 @@ export const CHAT_STEPS = [
   },
   {
     id: "toldJustStress",
-    bot: "Has anyone (a doctor, family, or friend) told you your symptoms are “just stress,” “normal,” or “in your head”?",
+    bot: "Has anyone told you to “stay positive,” “not worry,” or that your feelings are an overreaction?",
     type: "choice",
     field: "toldJustStress",
     options: [
@@ -40,7 +39,7 @@ export const CHAT_STEPS = [
   },
   {
     id: "embarrassed",
-    bot: "Do you feel embarrassed or uncomfortable bringing this up with a clinician?",
+    bot: "Do you feel embarrassed or uncomfortable bringing up emotions with your oncology team?",
     type: "choice",
     field: "embarrassedDiscussing",
     options: [
@@ -55,48 +54,48 @@ export const CHAT_STEPS = [
     type: "choice",
     field: "emotionalBurden",
     options: [
-      { value: "fear", label: "Fear something is seriously wrong" },
-      { value: "dismissed", label: "Feeling dismissed or not believed" },
-      { value: "shame", label: "Shame about body, weight, hair, or periods" },
-      { value: "burnout", label: "Exhaustion from trying to manage it alone" },
-      { value: "fertility", label: "Worry about fertility or the future" },
-      { value: "other", label: "Something else / mixed" },
+      { value: "fear", label: "Fear about results, recurrence, or the future" },
+      { value: "dismissed", label: "Feeling rushed or not fully heard" },
+      { value: "shame", label: "Body image or identity after treatment changes" },
+      { value: "burnout", label: "Exhaustion — patient or caregiver" },
+      { value: "fertility", label: "Grief or worry about life plans" },
+      { value: "other", label: "Information overload / something else" },
     ],
   },
   {
     id: "emotionalText",
-    bot: "In your own words: what has been hardest emotionally lately? (optional — e.g. work pressure, family, fear of a diagnosis, feeling alone)",
+    bot: "In your own words: what has been hardest emotionally lately? (optional — e.g. scan anxiety, chemo days, feeling alone)",
     type: "text",
     field: "emotionalNotes",
   },
   {
     id: "journeyIntro",
-    bot: "Thank you for trusting this space. Next: your care journey and what you want from a visit—not a symptom checklist.",
+    bot: "Thank you for trusting this space. Next: what you want from your next touchpoint with your care team.",
     type: "continue",
   },
   {
     id: "concernDuration",
-    bot: "How long have these health worries been on your mind?",
+    bot: "How long have these worries been on your mind?",
     type: "choice",
     field: "concernDuration",
     options: [
       { value: "months", label: "A few months" },
       { value: "years", label: "1–3 years" },
       { value: "long", label: "Many years" },
-      { value: "recent", label: "Only recently" },
+      { value: "recent", label: "Since diagnosis / recently" },
       { value: "unsure", label: "Not sure" },
     ],
   },
   {
     id: "careDelay",
-    bot: "Have you put off seeing a clinician about this?",
+    bot: "Have you delayed asking for emotional or practical support?",
     type: "choice",
     field: "careDelay",
     options: [
-      { value: "yes_shame", label: "Yes — embarrassment or shame" },
-      { value: "yes_time", label: "Yes — time, cost, or access" },
-      { value: "yes_dismissed", label: "Yes — past bad experiences / not believed" },
-      { value: "no", label: "No — I am in care or planning soon" },
+      { value: "yes_shame", label: "Yes — embarrassment or stigma" },
+      { value: "yes_time", label: "Yes — too busy with treatment logistics" },
+      { value: "yes_dismissed", label: "Yes — past experiences of not being heard" },
+      { value: "no", label: "No — I am reaching out" },
       { value: "unsure", label: "Prefer not to say" },
     ],
   },
@@ -110,36 +109,36 @@ export const CHAT_STEPS = [
       { value: "friends", label: "Friends or peers" },
       { value: "online", label: "Online communities only" },
       { value: "alone", label: "Mostly keep it to myself" },
-      { value: "clinician", label: "A clinician already" },
+      { value: "clinician", label: "A counsellor or care team member" },
     ],
   },
   {
     id: "visitGoal",
-    bot: "If you had a good appointment, what would you most want out of it?",
+    bot: "If your next appointment went well emotionally, what would you most want?",
     type: "choice",
     field: "visitGoal",
     options: [
-      { value: "answers", label: "Clear answers or a plan" },
-      { value: "heard", label: "To feel heard and believed" },
-      { value: "tests", label: "Tests or referrals" },
-      { value: "options", label: "Treatment or lifestyle options explained" },
+      { value: "answers", label: "Clear answers about next steps" },
+      { value: "heard", label: "To feel heard and not rushed" },
+      { value: "tests", label: "Clarity on scans, results, or timelines" },
+      { value: "options", label: "Support options explained (counselling, groups)" },
       { value: "unsure", label: "Not sure yet" },
     ],
   },
   {
     id: "oneThingForDoctor",
-    bot: "If your clinician could understand just one thing about how this affects you, what would it be? (optional — feelings and impact, not a symptom list)",
+    bot: "If your care team could understand just one thing about how this affects you, what would it be? (optional — feelings and impact)",
     type: "text",
     field: "oneThingForDoctor",
   },
   {
     id: "checkinBridge",
-    bot: "When you are ready, open Check-in from the menu or home to log cycles, pain, skin/hair changes, and receive an educational summary with population reference context. This page stays focused on feelings and visit prep.",
+    bot: "When you are ready, open Wellness log from the menu to track mood, sleep, and side effects between touchpoints. Try Calm & learn for brief breathing exercises. This page stays focused on feelings and visit prep.",
     type: "continue",
   },
   {
     id: "done",
-    bot: "You are done with the step-by-step flow for now. Switch to Open conversation to keep talking, or start a Check-in when you want a symptom log for your clinician.",
+    bot: "You are done with the step-by-step flow for now. Switch to Open conversation to keep talking, build a Visit brief, or explore calming exercises in Learn.",
     type: "done",
   },
 ];
@@ -179,5 +178,4 @@ export function chatStepCount() {
   return CHAT_STEPS.length;
 }
 
-/** Steps that use a wide free-text area in the UI */
 export const OPEN_TEXT_STEP_IDS = new Set(["emotionalText", "oneThingForDoctor"]);

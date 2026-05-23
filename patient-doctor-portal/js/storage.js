@@ -158,6 +158,44 @@ export function setShareChatConsent(patientId, enabled) {
   localStorage.setItem(consentKey(patientId), enabled ? "1" : "0");
 }
 
+function caregiverConsentKey(patientId) {
+  return `${NS}:patient:${patientId}:shareWithCaregiver`;
+}
+
+export function getShareCaregiverConsent(patientId) {
+  return localStorage.getItem(caregiverConsentKey(patientId)) === "1";
+}
+
+export function setShareCaregiverConsent(patientId, enabled) {
+  localStorage.setItem(caregiverConsentKey(patientId), enabled ? "1" : "0");
+}
+
+export function caregiverLinksKey(caregiverId) {
+  return `${NS}:caregiver:${caregiverId}:linkedPatients`;
+}
+
+export function listCaregiverLinkedPatientIds(caregiverId) {
+  const raw = localStorage.getItem(caregiverLinksKey(caregiverId));
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+export function linkCaregiverPatient(caregiverId, patientEmail) {
+  const email = (patientEmail || "").trim().toLowerCase();
+  if (!email) return { ok: false, error: "Patient email is required." };
+  const cur = listCaregiverLinkedPatientIds(caregiverId);
+  if (!cur.includes(email)) {
+    cur.push(email);
+    localStorage.setItem(caregiverLinksKey(caregiverId), JSON.stringify(cur));
+  }
+  return { ok: true, patientId: email };
+}
+
 function clinicalRecordsKey(patientId) {
   return `${NS}:patient:${patientId}:clinicalRecords`;
 }

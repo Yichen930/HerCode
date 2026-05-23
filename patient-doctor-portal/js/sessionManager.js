@@ -3,21 +3,26 @@ import {
   clearSession as clearLocalSession,
   getSession as getLocalSession,
   getShareChatConsent,
+  getShareCaregiverConsent,
   linkPatient,
+  linkCaregiverPatient,
   listChatMessages,
   listLinkedPatientIds,
+  listCaregiverLinkedPatientIds,
   listSubmissions,
   retractSubmission,
   restoreSubmission,
   purgeSubmission,
   setSession as setLocalSession,
   setShareChatConsent,
+  setShareCaregiverConsent,
   slugifyEmail,
   addChatMessage as localAddChatMessage,
   clearChatMessages,
   listClinicalRecords,
   addClinicalRecord,
 } from "./storage.js";
+import { loadBetweenVisit } from "./betweenVisitStore.js";
 
 /** @typedef {{ mode: "api", role: string, displayName: string, email: string, userId: number, patientId: string, doctorId: string }} ApiSession */
 /** @typedef {{ mode?: "local", role: string, displayName: string, patientId: string, doctorId: string }} LocalSession */
@@ -36,7 +41,9 @@ function mapApiUser(user) {
     userId: user.id,
     patientId: email,
     doctorId: email,
+    caregiverId: email,
     shareChatWithDoctor: Boolean(user.share_chat_with_doctor),
+    shareWithCaregiver: Boolean(user.share_with_caregiver),
   };
 }
 
@@ -267,6 +274,72 @@ export async function fetchDoctorExportManifest() {
 export async function syncDoctorExports() {
   if (!useApi) return null;
   return await backend.apiFetch("/doctor/exports/sync", { method: "POST" });
+}
+
+export function getCaregiverConsentForPatient(patientEmail) {
+  return getShareCaregiverConsent(slugifyEmail(patientEmail));
+}
+
+export async function setCaregiverConsentUnified(session, enabled) {
+  if (!session || session.role !== "patient") return;
+  if (useApi) {
+    const res = await backend.apiFetch("/me/caregiver-consent", {
+      method: "PATCH",
+      body: JSON.stringify({ share_with_caregiver: enabled }),
+    });
+    cachedApiUser = mapApiUser(res.user);
+    return;
+  }
+  setShareCaregiverConsent(session.patientId, enabled);
+}
+
+export async function syncBetweenVisitSnapshot(session) {
+  if (!session || session.role !== "patient") return;
+  const snapshot = loadBetweenVisit(session.patientId);
+  if (!useApi) return snapshot;
+  try {
+    await backend.apiFetch("/me/between-visit", {
+      method: "PUT",
+      body: JSON.stringify({ snapshot }),
+    });
+  } catch {
+    /* ignore offline */
+  }
+  return snapshot;
+}
+
+export async function fetchCaregiverPatients() {
+  if (!useApi) {
+    return listCaregiverLinkedPatientIds(getLocalSession().caregiverId || getLocalSession().email).map(
+      (email) => ({ patient_email: email })
+    );
+  }
+  return await backend.apiFetch("/caregiver/patients");
+}
+
+export async function linkCaregiverPatientUnified(session, patientEmail) {
+  if (useApi) {
+    try {
+      await backend.apiFetch("/caregiver/links", {
+        method: "POST",
+        body: JSON.stringify({ patient_email: slugifyEmail(patientEmail) }),
+      });
+      return { ok: true, patientId: slugifyEmail(patientEmail) };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  return linkCaregiverPatient(session.caregiverId || session.email, patientEmail);
+}
+
+export async function fetchCaregiverPatientSnapshot(patientEmail) {
+  const email = slugifyEmail(patientEmail);
+  if (!useApi) {
+    if (!getShareCaregiverConsent(email)) return null;
+    return loadBetweenVisit(email);
+  }
+  const enc = encodeURIComponent(email);
+  return await backend.apiFetch(`/caregiver/patients/${enc}/between-visit`);
 }
 
 export async function createDoctorClinicalRecord(patientEmail, payload, doctorSession) {

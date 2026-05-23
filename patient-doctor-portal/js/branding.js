@@ -1,7 +1,7 @@
 /** Product identity — BioHackzard is the team, not the product name. */
 
 export const PRODUCT_NAME = "HearHer";
-export const PRODUCT_TAGLINE = "Hear her. Care, connected.";
+export const PRODUCT_TAGLINE = "Support between medical touchpoints.";
 export const TEAM_NAME = "BioHackzard";
 export const TEAM_CREDIT = `Produced by ${TEAM_NAME}`;
 
@@ -53,7 +53,9 @@ export function renderHeaderBrand(session) {
   const href = session
     ? session.role === "doctor"
       ? "#/doctor"
-      : "#/patient"
+      : session.role === "caregiver"
+        ? "#/caregiver"
+        : "#/patient"
     : "#/about";
   const dim = LOGO_DIMS.header;
   return `<a href="${href}" class="brand brand-header">

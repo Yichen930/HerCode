@@ -105,7 +105,7 @@ export function mountCommunityPage(root, deps) {
       <main>
         <div class="card">
           <h1>Community</h1>
-          <p class="muted">Peer support for people navigating PCOS and related conditions. Every post is reviewed automatically before publishing. No diagnoses or emergency care here.</p>
+          <p class="muted">Peer support for people affected by breast cancer and caregivers. Every post is reviewed automatically before publishing. Not medical advice or emergency care.</p>
           ${feedbackHtml}
           <div class="callout callout-support">
             Share encouragement, coping strategies, or questions for your clinician—use “I feel” / “my experience”. Avoid naming doctors, sharing contact info, or telling others what disease they have.

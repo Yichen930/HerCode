@@ -21,6 +21,26 @@ import {
   renderPatientWellbeingPanel,
   initPatientWellbeingPanel,
 } from "./patientWellbeingContext.js";
+import { renderVisitQuestionsPanel, initVisitQuestionsPanel } from "./visitQuestions.js";
+import { renderVisitBriefPage, initVisitBriefPage } from "./visitBrief.js";
+import { renderFamilyExplainPage, initFamilyExplainPage } from "./familyExplain.js";
+import {
+  renderFindHumanHelpPage,
+  renderHumanSupportFootnote,
+} from "./humanSupportLadder.js";
+import {
+  renderScreeningPage,
+  initScreeningPage,
+  parseScreeningBarrierFromHash,
+} from "./screeningPage.js";
+import { renderBetweenVisitPromptCards } from "./betweenVisitHome.js";
+import {
+  renderCaregiverHome,
+  renderCaregiverLinkPage,
+  initCaregiverHome,
+  caregiverShareEnabled,
+} from "./caregiverPage.js";
+import { loadBetweenVisit } from "./betweenVisitStore.js";
 
 const DOCTOR_SELECTED_PATIENT_KEY = "hearher.doctor.selectedPatient";
 import { mountPatientChat } from "./patientChatPage.js";
@@ -69,6 +89,11 @@ import {
   createDoctorClinicalRecord,
   fetchDoctorExportManifest,
   syncDoctorExports,
+  setCaregiverConsentUnified,
+  syncBetweenVisitSnapshot,
+  fetchCaregiverPatients,
+  linkCaregiverPatientUnified,
+  fetchCaregiverPatientSnapshot,
 } from "./sessionManager.js";
 import {
   downloadServerExportFile,
@@ -77,11 +102,11 @@ import {
 } from "./csvExport.js";
 
 const CLINICAL_DIAGNOSIS_SUGGESTIONS = [
-  "PCOS",
-  "Endometriosis",
-  "Adenomyosis",
-  "Thyroid disorder",
-  "Hyperprolactinemia",
+  "Breast cancer",
+  "DCIS",
+  "Metastatic breast cancer",
+  "In active treatment",
+  "Survivorship follow-up",
   "Other / pending workup",
 ];
 
@@ -138,10 +163,10 @@ function renderHomeStats(subs, clinicalCount) {
 
 function renderPatientQuickActions() {
   const items = [
-    { href: "#/patient/chat", title: "Support", desc: "Feelings & visit preparation", featured: true, theme: "support", icon: "support" },
-    { href: "#/patient/checkin", title: "Check-in", desc: "Symptom log & summary", featured: false, theme: "checkin", icon: "checkin" },
-    { href: "#/patient/learn", title: "Learn", desc: "Flip cards & visit tips", featured: false, theme: "learn", icon: "learn" },
-    { href: "#/patient/community", title: "Community", desc: "Peer stories & support", featured: false, theme: "community", icon: "community" },
+    { href: "#/patient/chat", title: "Between visits", desc: "Feelings, hard questions, visit prep", featured: true, theme: "support", icon: "support" },
+    { href: "#/patient/checkin", title: "Wellness log", desc: "Mood, sleep & side effects between visits", featured: false, theme: "checkin", icon: "checkin" },
+    { href: "#/patient/learn", title: "Calm & learn", desc: "Breathing exercises, visit prep & caregiver tips", featured: false, theme: "learn", icon: "learn" },
+    { href: "#/patient/community", title: "Peer support", desc: "Breast cancer community — moderated, not medical advice", featured: false, theme: "community", icon: "community" },
   ];
   return `<div class="home-actions">${items
     .map(
@@ -164,8 +189,9 @@ function renderHeader(session) {
       ? [
           navLink("#/patient", "Home"),
           navLink("#/patient/chat", "Support"),
-          navLink("#/patient/checkin", "Check-in"),
-          navLink("#/patient/learn", "Learn"),
+          navLink("#/patient/find-help", "Find human help"),
+          navLink("#/patient/checkin", "Wellness log"),
+          navLink("#/patient/learn", "Calm & learn"),
           navLink("#/patient/community", "Community"),
           navLink("#/patient/settings", "Privacy"),
         ].join("")
@@ -176,15 +202,18 @@ function renderHeader(session) {
           navLink("#/doctor", "Home"),
           navLink("#/doctor/link", "Link patient"),
           navLink("#/doctor/moderation", "Safety log"),
-          navLink("#/doctor/research", "Reference"),
         ].join("")
+      : "";
+  const navCaregiver =
+    session?.role === "caregiver"
+      ? [navLink("#/caregiver", "Home"), navLink("#/caregiver/link", "Link patient")].join("")
       : "";
   return `
   <header class="app-header">
     ${renderHeaderBrand(session)}
     <nav class="app-nav">
       ${navLink("#/about", "About")}
-      ${session ? navPatient + navDoctor : ""}
+      ${session ? navPatient + navDoctor + navCaregiver : ""}
       ${session ? `<button class="btn btn-ghost btn-sm" type="button" id="btnLogout">Log out</button>` : navLink("#/login", "Sign in")}
     </nav>
   </header>`;
@@ -197,10 +226,17 @@ function requireSession(role) {
     return null;
   }
   if (role && s.role !== role) {
-    location.hash = s.role === "doctor" ? "#/doctor" : "#/patient";
+    location.hash =
+      s.role === "doctor" ? "#/doctor" : s.role === "caregiver" ? "#/caregiver" : "#/patient";
     return null;
   }
   return s;
+}
+
+function homeRouteForRole(role) {
+  if (role === "doctor") return "#/doctor";
+  if (role === "caregiver") return "#/caregiver";
+  return "#/patient";
 }
 
 function sessionLabel(s) {
@@ -234,10 +270,28 @@ function renderLogin(root) {
           <div class="login-brand-inner">
             ${renderBrandLockup({ size: "login" })}
             <p class="login-brand-tagline">${escapeHtml(PRODUCT_TAGLINE)}</p>
+            <p class="login-portals-label">Choose your portal</p>
+            <div class="login-portals" role="group" aria-label="Choose portal">
+              <button type="button" class="login-portal-card is-active" data-role="patient">
+                <span class="login-portal-badge badge-patient">Patient</span>
+                <strong>Between touchpoints</strong>
+                <span class="login-portal-desc">Process emotions &amp; prepare for your team</span>
+              </button>
+              <button type="button" class="login-portal-card" data-role="caregiver">
+                <span class="login-portal-badge badge-caregiver">Caregiver</span>
+                <strong>Support someone</strong>
+                <span class="login-portal-desc">Plain-language summaries with consent</span>
+              </button>
+              <button type="button" class="login-portal-card" data-role="doctor">
+                <span class="login-portal-badge badge-doctor">Clinician</span>
+                <strong>Review wellness logs</strong>
+                <span class="login-portal-desc">Check-ins &amp; visit prep notes</span>
+              </button>
+            </div>
             <ul class="login-brand-list">
-              <li>Patients log symptoms and prepare for visits</li>
-              <li>Clinicians review linked check-ins and notes</li>
-              <li>Education only — not a diagnosis tool</li>
+              <li>Emotional support between breast cancer medical touchpoints</li>
+              <li>Patients, caregivers &amp; clinicians — three connected portals</li>
+              <li>Non-medical companion — does not replace your care team</li>
             </ul>
             <a class="login-about-link" href="#/about">Learn more</a>
           </div>
@@ -260,6 +314,7 @@ function renderLogin(root) {
                 <span class="login-field-label">I am a</span>
                 <div class="login-role-toggle" role="group" aria-label="Role">
                   <button type="button" class="login-role-btn is-active" data-role="patient">Patient</button>
+                  <button type="button" class="login-role-btn" data-role="caregiver">Caregiver</button>
                   <button type="button" class="login-role-btn" data-role="doctor">Clinician</button>
                 </div>
                 <input type="hidden" id="role" name="role" value="patient" />
@@ -293,16 +348,6 @@ function renderLogin(root) {
       </div>
     </div>`;
 
-  document.querySelectorAll(".login-role-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const role = btn.getAttribute("data-role") || "patient";
-      document.getElementById("role").value = role;
-      document.querySelectorAll(".login-role-btn").forEach((b) => {
-        b.classList.toggle("is-active", b === btn);
-      });
-    });
-  });
-
   /** @type {"signin"|"register"} */
   let authMode = "signin";
   const displayField = document.getElementById("loginDisplayNameField");
@@ -312,9 +357,40 @@ function renderLogin(root) {
   const btnPrimary = document.getElementById("btnAuthPrimary");
   const btnToggle = document.getElementById("btnAuthToggle");
 
+  function setLoginRole(role) {
+    const r = role || "patient";
+    const roleInput = document.getElementById("role");
+    if (roleInput) roleInput.value = r;
+    document.querySelectorAll(".login-role-btn, .login-portal-card").forEach((el) => {
+      el.classList.toggle("is-active", el.getAttribute("data-role") === r);
+    });
+    const labels = {
+      patient: "Patient portal",
+      caregiver: "Caregiver portal",
+      doctor: "Clinician portal",
+    };
+    const subs = {
+      patient: "Sign in to reflect and prepare between clinic visits.",
+      caregiver: "Sign in to read shared between-visit summaries (with patient consent).",
+      doctor: "Sign in to review linked patients and reference materials.",
+    };
+    if (panelTitle && authMode === "signin") {
+      panelTitle.textContent = labels[r] || "Sign in";
+    }
+    if (panelSub && authMode === "signin") {
+      panelSub.textContent = subs[r] || panelSub.textContent;
+    }
+  }
+
+  document.querySelectorAll(".login-role-btn, .login-portal-card").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setLoginRole(btn.getAttribute("data-role") || "patient");
+    });
+  });
+
   function redirectAfterAuth() {
     const s = getSession();
-    location.hash = s?.role === "doctor" ? "#/doctor" : "#/patient";
+    location.hash = homeRouteForRole(s?.role || "patient");
   }
 
   function setAuthMode(mode) {
@@ -322,16 +398,30 @@ function renderLogin(root) {
     const registering = mode === "register";
     if (displayField) displayField.hidden = !registering;
     if (displayInput) displayInput.required = registering;
-    if (panelTitle) panelTitle.textContent = registering ? "Create account" : "Sign in";
+    if (panelTitle) {
+      panelTitle.textContent = registering
+        ? "Create account"
+        : {
+            patient: "Patient portal",
+            caregiver: "Caregiver portal",
+            doctor: "Clinician portal",
+          }[document.getElementById("role")?.value || "patient"] || "Sign in";
+    }
     if (panelSub) {
       panelSub.textContent = registering
         ? "Choose a display name shown in the app. Use a demo email — not real clinical identifiers."
-        : api
-          ? "Sign in with email and password. Display name is only needed when you create an account."
-          : "Offline demo — email is your local ID; we use the part before @ as your display name.";
+        : {
+            patient: "Sign in to reflect and prepare between clinic visits.",
+            caregiver: "Sign in to read shared between-visit summaries (with patient consent).",
+            doctor: "Sign in to review linked patients and reference materials.",
+          }[document.getElementById("role")?.value || "patient"] ||
+          (api
+            ? "Sign in with email and password. Display name is only needed when you create an account."
+            : "Offline demo — email is your local ID; we use the part before @ as your display name.");
     }
     if (btnPrimary) btnPrimary.textContent = registering ? "Create account" : "Log in";
     if (btnToggle) btnToggle.textContent = registering ? "Back to sign in" : "Create account";
+    if (!registering) setLoginRole(document.getElementById("role")?.value || "patient");
   }
 
   const msg = () => document.getElementById("loginMsg");
@@ -345,6 +435,7 @@ function renderLogin(root) {
   }
 
   if (api) setAuthMode("signin");
+  setLoginRole(document.getElementById("role")?.value || "patient");
 
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -394,8 +485,9 @@ function renderLogin(root) {
       displayName: offlineName,
       patientId: email,
       doctorId: email,
+      caregiverId: email,
     });
-    location.hash = role === "doctor" ? "#/doctor" : "#/patient";
+    location.hash = homeRouteForRole(role);
   });
 }
 
@@ -409,18 +501,19 @@ async function renderAbout(root) {
         <div class="about-brand">${renderBrandLockup({ size: "md" })}</div>
         <h1>About ${escapeHtml(PRODUCT_NAME)}</h1>
         <p class="muted about-team">${escapeHtml(TEAM_CREDIT)}. ${escapeHtml(PRODUCT_TAGLINE)}. Not a medical device or diagnosis tool.</p>
-        <p><span class="badge badge-patient">Patient</span> <strong>Support</strong> covers feelings and visit preparation. <strong>Check-in</strong> logs symptoms and provides educational summaries with population reference context (not a diagnosis). <strong>Learn</strong> offers guided flashcards.</p>
-        <p><span class="badge badge-doctor">Doctor</span> Read linked patients’ check-in summaries; optionally read <strong>support chat</strong> only if the patient enables sharing under Privacy.</p>
+        <p><span class="badge badge-patient">Patient</span> <strong>Between touchpoints</strong> — process anxiety, fear, and information overload; prepare questions; calming exercises. <strong>Wellness log</strong> tracks mood, sleep, and side effects (not medical advice). <strong>Learn</strong> offers brief calming and visit-prep cards.</p>
+        <p><span class="badge badge-caregiver">Caregiver</span> Link a patient and read plain-language between-visit summaries when they enable sharing. <a href="https://bcf.org.sg/guidance/caregiving" target="_blank" rel="noopener noreferrer">BCF caregiving guidance</a>.</p>
+        <p><span class="badge badge-doctor">Clinician</span> Read linked patients’ wellness check-ins; optionally read <strong>support chat</strong> only if the patient enables sharing under Privacy.</p>
 
         <div class="callout danger">
-          <strong>Not medical advice.</strong> This site does not diagnose, treat, or prescribe. It is not FDA-cleared software and must not be used as a substitute for licensed clinical judgment, examination, imaging, or laboratory testing.
+          <strong>Not medical advice.</strong> This companion does not diagnose, treat, or prescribe. It does not replace oncologists, counsellors, support groups, or emergency care.
         </div>
 
         <h2>Compliance notes</h2>
         <ul>
           <li>Outputs are <strong>informational</strong> and may be inaccurate or incomplete.</li>
-          <li>Symptom overlap between conditions (for example, PCOS and endometriosis) is common; the tool does not establish a differential diagnosis.</li>
-          <li>Emergency symptoms (for example, severe acute pain, heavy bleeding with instability, fever with pelvic pain, pregnancy complications) require urgent in-person care.</li>
+          <li>AI support (when enabled) offers reflective prompts — not clinical triage.</li>
+          <li>Seek urgent or emergency care for acute symptoms your team has identified as emergencies.</li>
           <li>${
             isApiMode()
               ? "When connected to the application server, accounts and submissions are stored in an encrypted database on the deployment host. Organizational HIPAA or GDPR compliance depends on your hosting and policies."
@@ -429,7 +522,7 @@ async function renderAbout(root) {
           <li>A production system would require separate security, privacy, clinical validation, and regulatory assessment (for example HIPAA or GDPR where applicable).</li>
         </ul>
 
-        <p class="muted">Literature-level omics modules (for example, single-cell resources) belong in a separate, clinician-gated education area with sourced figures and clear separation from triage outputs.</p>
+        <p class="muted">Literature-level research modules are not part of this BCF-focused demo. Human support remains essential.</p>
       </div>
       ${renderProductFooter()}
     </main>`;
@@ -514,11 +607,11 @@ async function renderPatientHome(root) {
           <div class="home-hero-bg" aria-hidden="true"></div>
           <div class="home-hero-inner">
             <p class="home-eyebrow">${escapeHtml(greeting)}</p>
-            <p class="home-hero-tagline">${escapeHtml(PRODUCT_TAGLINE)}</p>
-            <p class="home-lead">Track how you feel over time and pull together notes before visits with your clinician. Check-ins and support chat live here when you need them.</p>
+            <p class="home-hero-tagline">Emotional support between medical touchpoints</p>
+            <p class="home-lead">After a breast cancer diagnosis, anxiety and information overload often continue between appointments. Reflect, prepare questions, and access calming exercises — this companion is non-medical and does not replace your oncologist, counsellor, or support groups.</p>
             <div class="home-hero-actions">
-              <a class="btn btn-primary" href="#/patient/checkin">New check-in</a>
-              <a class="btn btn-ghost home-hero-ghost" href="#/patient/chat">Open support</a>
+              <a class="btn btn-primary" href="#/patient/chat">Open support</a>
+              <a class="btn btn-ghost home-hero-ghost" href="#/patient/checkin">Wellness log</a>
             </div>
             <p class="home-email-tip">
               <span class="home-email-label">Share with your clinician</span>
@@ -530,12 +623,16 @@ async function renderPatientHome(root) {
 
       ${renderHomeStats(subs, clinicalRecords.length)}
 
+      ${renderBetweenVisitPromptCards(escapeHtml)}
+
       ${renderPatientWellbeingPanel()}
+
+      ${renderVisitQuestionsPanel(session.patientId, escapeHtml)}
 
       <section class="home-panel">
         <header class="home-panel-head">
           <h2>Explore</h2>
-          <p class="muted">Check-ins, support, and visit prep</p>
+          <p class="muted">Symptom log, learning, and peer support</p>
         </header>
         ${renderPatientQuickActions()}
       </section>
@@ -564,7 +661,8 @@ async function renderPatientHome(root) {
     </main>`;
 
   await bindLogout();
-  initPatientWellbeingPanel();
+  initPatientWellbeingPanel(session.patientId);
+  initVisitQuestionsPanel(session.patientId);
 }
 
 async function renderPatientCheckin(root) {
@@ -576,105 +674,70 @@ async function renderPatientCheckin(root) {
     `
     <main>
       <div class="card">
-        <h1>Check-in</h1>
-        <p class="muted">Answer at least <strong>2 questions</strong> (choose an option other than “Prefer not to say”) or write a short note (<strong>20+ characters</strong>). You can skip anything you are unsure about.</p>
+        <h1>Wellness log</h1>
+        <p class="muted">Track mood, sleep, and side effects between oncology touchpoints — not a diagnosis tool. Answer at least <strong>2 questions</strong> or write a short note (<strong>20+ characters</strong>).</p>
         <form id="checkinForm">
           <div class="row two">
             <div>
-              <label for="age">Age (years)</label>
-              <input id="age" name="age" type="text" inputmode="numeric" placeholder="e.g. 32" />
+              <label for="age">Age (years, optional)</label>
+              <input id="age" name="age" type="text" inputmode="numeric" placeholder="e.g. 52" />
             </div>
             <div>
-              <label for="cycleRegularity">Cycle regularity</label>
-              <select id="cycleRegularity" name="cycleRegularity">
+              <label for="treatmentPhase">Where you are in care</label>
+              <select id="treatmentPhase" name="treatmentPhase">
                 <option value="">Prefer not to say</option>
-                <option value="regular">Mostly regular</option>
-                <option value="irregular">Often irregular</option>
-                <option value="unknown">Unknown</option>
+                <option value="newly_diagnosed">Newly diagnosed / planning</option>
+                <option value="active_treatment">Active treatment</option>
+                <option value="post_treatment">Recently finished a phase</option>
+                <option value="survivorship">Survivorship / follow-up</option>
               </select>
             </div>
           </div>
           <div class="row two">
             <div>
-              <label for="painLevel">Pelvic pain intensity (self-rated)</label>
-              <select id="painLevel" name="painLevel">
+              <label for="mood">Mood &amp; anxiety</label>
+              <select id="mood" name="mood">
                 <option value="">Prefer not to say</option>
-                <option value="none">None / minimal</option>
-                <option value="mild">Mild</option>
-                <option value="moderate">Moderate</option>
-                <option value="severe">Severe</option>
+                <option value="high_anxiety">High anxiety or fear</option>
+                <option value="low_mood">Low mood or grief</option>
+                <option value="mixed">Mixed emotions</option>
+                <option value="okay">Mostly okay</option>
               </select>
             </div>
             <div>
-              <label for="painTiming">Pain pattern</label>
-              <select id="painTiming" name="painTiming">
+              <label for="sleep">Sleep</label>
+              <select id="sleep" name="sleep">
                 <option value="">Prefer not to say</option>
-                <option value="cyclical">Worse around menses</option>
-                <option value="noncyclical">Not clearly cyclical</option>
-                <option value="progressive">Progressively worsening</option>
-              </select>
-            </div>
-          </div>
-          <div class="row two">
-            <div>
-              <label for="skinHair">Notable acne, hair thinning, or excess hair growth?</label>
-              <select id="skinHair" name="skinHair">
-                <option value="">Prefer not to say</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
-            </div>
-            <div>
-              <label for="bowelBladder">Bowel or bladder symptoms related to your cycle?</label>
-              <select id="bowelBladder" name="bowelBladder">
-                <option value="">Prefer not to say</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
+                <option value="poor">Poor most nights</option>
+                <option value="fair">Fair / inconsistent</option>
+                <option value="good">Mostly good</option>
               </select>
             </div>
           </div>
           <div class="row two">
             <div>
-              <label for="weightChange">Recent weight gain or difficulty losing weight?</label>
-              <select id="weightChange" name="weightChange">
+              <label for="sideEffects">Side effects or discomfort</label>
+              <select id="sideEffects" name="sideEffects">
                 <option value="">Prefer not to say</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
+                <option value="significant">Significant — affects daily life</option>
+                <option value="some">Some discomfort</option>
+                <option value="minimal">Minimal / none lately</option>
               </select>
             </div>
             <div>
-              <label for="heavyBleeding">Heavy menstrual bleeding?</label>
-              <select id="heavyBleeding" name="heavyBleeding">
+              <label for="informationOverload">Information overload</label>
+              <select id="informationOverload" name="informationOverload">
                 <option value="">Prefer not to say</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
-            </div>
-          </div>
-          <div class="row two">
-            <div>
-              <label for="bmiCategory">BMI category (self-reported)</label>
-              <select id="bmiCategory" name="bmiCategory">
-                <option value="">Prefer not to say</option>
-                <option value="underweight">Underweight</option>
-                <option value="normal">Normal</option>
-                <option value="overweight">Overweight</option>
-                <option value="obese">Obese</option>
-              </select>
-            </div>
-            <div>
-              <label for="fertilityConcern">Fertility concerns?</label>
-              <select id="fertilityConcern" name="fertilityConcern">
-                <option value="">Prefer not to say</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
+                <option value="yes">Yes — overwhelmed</option>
+                <option value="sometimes">Sometimes</option>
+                <option value="no">Managing okay</option>
               </select>
             </div>
           </div>
           <div class="row">
             <div>
-              <label for="notes">Anything else to tell your doctor (free text)</label>
-              <textarea id="notes" name="notes" maxlength="2000" placeholder="Optional"></textarea>
+              <label for="notes">Anything on your mind (free text)</label>
+              <textarea id="notes" name="notes" maxlength="2000" placeholder="Optional — feelings, worries, or questions for your care team"></textarea>
             </div>
           </div>
           <div id="checkinMsg" class="checkin-form-msg" role="alert" hidden></div>
@@ -1155,7 +1218,7 @@ function renderDoctorPatientCard(pid, subs, chatBlock, clinicalRecords) {
               <div class="row two">
                 <div>
                   <label for="diag-name-${slug}">Diagnosis name</label>
-                  <input id="diag-name-${slug}" name="diagnosisName" type="text" list="diag-suggestions-${slug}" required maxlength="200" placeholder="e.g. PCOS" />
+                  <input id="diag-name-${slug}" name="diagnosisName" type="text" list="diag-suggestions-${slug}" required maxlength="200" placeholder="e.g. Breast cancer" />
                   <datalist id="diag-suggestions-${slug}">
                     ${CLINICAL_DIAGNOSIS_SUGGESTIONS.map((d) => `<option value="${escapeHtml(d)}"></option>`).join("")}
                   </datalist>
@@ -1308,7 +1371,6 @@ async function renderDoctorHome(root) {
         <div class="doctor-dash-actions btn-row">
           <a class="btn btn-primary" href="#/doctor/link">Link patient</a>
           <a class="btn btn-ghost" href="#/doctor/moderation">Safety log (flagged posts)</a>
-          <a class="btn btn-ghost" href="#/doctor/research">Reference library</a>
         </div>
       </section>
 
@@ -1475,6 +1537,9 @@ async function renderPatientSettings(root) {
   const session = requireSession("patient");
   if (!session) return;
   const consent = getChatConsent(session);
+  const cgConsent = isApiMode()
+    ? Boolean(session.shareWithCaregiver)
+    : getShareCaregiverConsent(session.patientId);
 
   root.innerHTML =
     renderHeader(session) +
@@ -1482,11 +1547,16 @@ async function renderPatientSettings(root) {
     <main>
       <div class="card">
         <h1>Privacy &amp; sharing</h1>
-        <p class="muted">Control whether linked clinicians can read your <strong>support chat</strong> transcript. Check-in summaries are always available to linked clinicians.</p>
+        <p class="muted">Control what linked clinicians and caregivers can read. Wellness log summaries are always available to linked clinicians.</p>
         <label class="checkbox-row">
           <input type="checkbox" id="shareChat" ${consent ? "checked" : ""} />
-          Share symptom chat with linked clinicians
+          Share support chat with linked clinicians
         </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="shareCaregiver" ${cgConsent ? "checked" : ""} />
+          Share between-visit summaries with linked caregivers
+        </label>
+        <p class="muted">Caregivers see visit briefs and family-friendly notes — not raw medical records.</p>
         <p id="consentMsg" class="muted"></p>
         <div class="btn-row">
           <button class="btn btn-primary" type="button" id="saveConsent">Save</button>
@@ -1497,12 +1567,123 @@ async function renderPatientSettings(root) {
 
   await bindLogout();
   document.getElementById("saveConsent").onclick = async () => {
-    const enabled = document.getElementById("shareChat").checked;
-    await setChatConsentUnified(session, enabled);
-    document.getElementById("consentMsg").textContent = enabled
-      ? "Chat sharing enabled for linked clinicians."
-      : "Chat sharing disabled. Doctors will see check-ins only.";
+    const chatEnabled = document.getElementById("shareChat").checked;
+    const cgEnabled = document.getElementById("shareCaregiver").checked;
+    await setChatConsentUnified(session, chatEnabled);
+    await setCaregiverConsentUnified(session, cgEnabled);
+    await syncBetweenVisitSnapshot(session);
+    document.getElementById("consentMsg").textContent = [
+      chatEnabled ? "Clinician chat sharing on." : "Clinician chat sharing off.",
+      cgEnabled ? "Caregiver sharing on." : "Caregiver sharing off.",
+    ].join(" ");
   };
+}
+
+async function renderPatientVisitBrief(root) {
+  const session = requireSession("patient");
+  if (!session) return;
+  let subs = [];
+  try {
+    subs = isApiMode() ? await fetchMySubmissions() : listSubmissions(session.patientId);
+  } catch {
+    subs = [];
+  }
+  root.innerHTML = renderHeader(session) + renderVisitBriefPage(session, escapeHtml, subs);
+  await bindLogout();
+  initVisitBriefPage(session);
+  await syncBetweenVisitSnapshot(session);
+}
+
+async function renderPatientFamily(root) {
+  const session = requireSession("patient");
+  if (!session) return;
+  root.innerHTML = renderHeader(session) + renderFamilyExplainPage(session, escapeHtml);
+  await bindLogout();
+  initFamilyExplainPage(session);
+}
+
+async function renderPatientHumanSupport(root) {
+  const session = requireSession("patient");
+  if (!session) return;
+  const data = loadBetweenVisit(session.patientId);
+  root.innerHTML =
+    renderHeader(session) +
+    renderFindHumanHelpPage(escapeHtml, { supportCollected: data.supportCollected });
+  await bindLogout();
+}
+
+async function renderPatientScreening(root) {
+  const session = requireSession("patient");
+  if (!session) return;
+  const barrier = parseScreeningBarrierFromHash();
+  root.innerHTML = renderHeader(session) + renderScreeningPage(session, escapeHtml, barrier);
+  await bindLogout();
+  initScreeningPage(session);
+}
+
+async function renderCaregiverHomePage(root) {
+  const session = requireSession("caregiver");
+  if (!session) return;
+
+  let linked = [];
+  try {
+    linked = await fetchCaregiverPatients();
+  } catch {
+    linked = [];
+  }
+
+  const hash = location.hash || "#/caregiver";
+  const q = hash.split("?")[1] || "";
+  const params = new URLSearchParams(q);
+  const selected =
+    params.get("patient") ||
+    linked[0]?.patient_email ||
+    (typeof linked[0] === "string" ? linked[0] : "") ||
+    "";
+
+  const row = linked.find((p) => (p.patient_email || p) === selected);
+  const shareEnabled = selected ? caregiverShareEnabled(selected, row) : false;
+
+  if (isApiMode() && selected && shareEnabled) {
+    try {
+      const remote = await fetchCaregiverPatientSnapshot(selected);
+      if (remote?.snapshot) {
+        localStorage.setItem(
+          `hearher.betweenVisit.v1:${selected}`,
+          JSON.stringify({ ...remote.snapshot, updatedAt: remote.updatedAt })
+        );
+      }
+    } catch {
+      /* show local or empty */
+    }
+  }
+
+  root.innerHTML =
+    renderHeader(session) +
+    renderCaregiverHome(session, escapeHtml, linked, selected, { shareEnabled }) +
+    renderProductFooter();
+
+  await bindLogout();
+  initCaregiverHome((email) => {
+    location.hash = `#/caregiver?patient=${encodeURIComponent(email)}`;
+  });
+}
+
+async function renderCaregiverLink(root) {
+  const session = requireSession("caregiver");
+  if (!session) return;
+
+  root.innerHTML = renderHeader(session) + renderCaregiverLinkPage(session, escapeHtml);
+
+  await bindLogout();
+  document.getElementById("caregiverLinkForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("caregiverPatientEmail")?.value || "";
+    const res = await linkCaregiverPatientUnified(session, email);
+    document.getElementById("caregiverLinkMsg").textContent = res.ok
+      ? "Patient linked. They must enable caregiver sharing under Privacy."
+      : res.error || "Could not link patient.";
+  });
 }
 
 async function renderPatientChat(root) {
@@ -1637,7 +1818,7 @@ function renderPatientHomeCheckinsSection(subs) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
         </div>
         <p class="home-empty-title">No check-ins yet</p>
-        <p class="muted home-empty-text">Log symptoms once to build a timeline and educational summary your clinician can review.</p>
+        <p class="muted home-empty-text">Log mood or sleep once to build a timeline your care team can review between touchpoints.</p>
         <a class="btn btn-primary" href="#/patient/checkin">Start your first check-in</a>
       </div>`;
   }
@@ -1778,7 +1959,7 @@ async function renderPatientCheckinsHistory(root) {
     <main>
       <div class="card">
         <h1>Check-in history</h1>
-        <p class="muted">Each entry is your submitted symptom log plus an educational summary (not a medical diagnosis). You can move entries to the <a href="#/patient/checkins/trash">recycle bin</a> to hide them from your linked clinician.</p>
+        <p class="muted">Each entry is your wellness log plus a non-medical summary for visit preparation. You can move entries to the <a href="#/patient/checkins/trash">recycle bin</a> to hide them from your linked clinician.</p>
         <div class="btn-row">
           <a class="btn btn-primary" href="#/patient/checkin">New check-in</a>
           <a class="btn btn-ghost" href="#/patient/checkins/trash">Recycle bin</a>
@@ -1841,21 +2022,33 @@ async function router() {
     await refreshApiSession();
   }
   const hash = location.hash || "#/login";
+  const route = hash.split("?")[0];
 
-  if (hash === "#/about") return await renderAbout(root);
-  if (hash === "#/login") return renderLogin(root);
-  if (hash === "#/patient") return await renderPatientHome(root);
-  if (hash === "#/patient/checkins/trash") return await renderPatientCheckinsTrash(root);
-  if (hash.startsWith("#/patient/checkins")) return await renderPatientCheckinsHistory(root);
-  if (hash === "#/patient/checkin") return await renderPatientCheckin(root);
-  if (hash === "#/patient/learn") return await renderPatientLearn(root);
-  if (hash === "#/patient/community") return await renderPatientCommunity(root);
-  if (hash === "#/patient/chat") return await renderPatientChat(root);
-  if (hash === "#/patient/settings") return await renderPatientSettings(root);
-  if (hash === "#/doctor") return await renderDoctorHome(root);
-  if (hash === "#/doctor/link") return await renderDoctorLink(root);
-  if (hash === "#/doctor/moderation") return await renderDoctorModeration(root);
-  if (hash === "#/doctor/research") return await renderDoctorResearch(root);
+  if (route === "#/about") return await renderAbout(root);
+  if (route === "#/login") return renderLogin(root);
+  if (route === "#/patient") return await renderPatientHome(root);
+  if (route === "#/patient/checkins/trash") return await renderPatientCheckinsTrash(root);
+  if (route.startsWith("#/patient/checkins")) return await renderPatientCheckinsHistory(root);
+  if (route === "#/patient/checkin") return await renderPatientCheckin(root);
+  if (route === "#/patient/learn") return await renderPatientLearn(root);
+  if (route === "#/patient/community") return await renderPatientCommunity(root);
+  if (route === "#/patient/chat") return await renderPatientChat(root);
+  if (route === "#/patient/visit-brief") return await renderPatientVisitBrief(root);
+  if (route === "#/patient/family") return await renderPatientFamily(root);
+  if (route === "#/patient/screening") return await renderPatientScreening(root);
+  if (route === "#/patient/find-help" || route === "#/patient/human-support") {
+    return await renderPatientHumanSupport(root);
+  }
+  if (route === "#/patient/settings") return await renderPatientSettings(root);
+  if (route === "#/caregiver") return await renderCaregiverHomePage(root);
+  if (route === "#/caregiver/link") return await renderCaregiverLink(root);
+  if (route === "#/doctor") return await renderDoctorHome(root);
+  if (route === "#/doctor/link") return await renderDoctorLink(root);
+  if (route === "#/doctor/moderation") return await renderDoctorModeration(root);
+  if (route === "#/doctor/research") {
+    location.hash = "#/doctor";
+    return;
+  }
 
   location.hash = "#/login";
 }

@@ -1,5 +1,16 @@
 import { CHAT_STEPS, advanceChat, OPEN_TEXT_STEP_IDS } from "./symptomChat.js";
 import { getSupportReply, probeAiChat, resetAiProbe, getLastAiError } from "./aiChat.js";
+import { parseSupportTabFromHash } from "./betweenVisitHome.js";
+import {
+  DISMISSAL_STARTERS,
+  DISMISSAL_STEP_IDS,
+  getDismissalIntro,
+  renderDismissalAdvocacyPanel,
+} from "./dismissalSupport.js";
+import { setSupportCollected, addVisitQuestion } from "./betweenVisitStore.js";
+import { autoCollectVisitQuestions } from "./visitQuestions.js";
+import { syncBetweenVisitSnapshot } from "./sessionManager.js";
+import { renderAiNotCounsellorBanner, renderHumanSupportFootnote } from "./humanSupportLadder.js";
 
 const EMOTIONAL_STEP_IDS = new Set([
   "emotionalIntro",
@@ -27,6 +38,24 @@ const SUPPORT_STARTERS = [
   "I am scared something is wrong and no one believes me",
 ];
 
+const HARD_TO_SAY_STARTERS = [
+  "I am ashamed to talk about periods or body changes",
+  "I am grieving what this might mean for my future",
+  "I feel alone even when people try to help",
+  "I do not know if my symptoms are real enough to mention",
+];
+
+const ENTRY_TABS = [
+  { id: "feelings", title: "Feelings", desc: "Fear, grief, confusion, overload" },
+  { id: "visitprep", title: "Visit prep", desc: "Goals and what to ask next" },
+  { id: "dismissal", title: "Hard to say", desc: "Dismissed or not believed" },
+  { id: "open", title: "Open chat", desc: "Write freely in your own words" },
+];
+
+function stepIndexById(id) {
+  return CHAT_STEPS.findIndex((s) => s.id === id);
+}
+
 function isOpenTextStep(stepId) {
   return OPEN_TEXT_STEP_IDS.has(stepId);
 }
@@ -40,6 +69,13 @@ function guidedSectionLabel(step) {
     return `<p class="chat-section-label">Care journey &amp; your visit</p>`;
   }
   return "";
+}
+
+function firstStepIndexForTab(tab) {
+  if (tab === "feelings") return stepIndexById("emotionalIntro");
+  if (tab === "visitprep") return stepIndexById("journeyIntro");
+  if (tab === "dismissal") return stepIndexById("toldJustStress");
+  return 0;
 }
 
 /**
@@ -65,9 +101,12 @@ export async function mountPatientChat(root, deps) {
     messages = [];
   }
 
-  let stepIndex = 0;
+  let entryTab = parseSupportTabFromHash() || "feelings";
+  if (!ENTRY_TABS.some((t) => t.id === entryTab)) entryTab = "feelings";
+
+  let stepIndex = firstStepIndexForTab(entryTab === "open" ? "feelings" : entryTab);
   let collected = {};
-  let uiMode = "guided";
+  let uiMode = entryTab === "open" ? "support" : "guided";
   let aiOn = false;
   let busy = false;
 
@@ -77,6 +116,15 @@ export async function mountPatientChat(root, deps) {
   }
 
   const chatHistory = () => messages.map((m) => ({ role: m.role, text: m.text }));
+
+  const persistCollected = async () => {
+    setSupportCollected(session.patientId, collected);
+    autoCollectVisitQuestions(session.patientId, {
+      supportCollected: collected,
+      oneThing: collected.oneThingForDoctor || "",
+    });
+    await syncBetweenVisitSnapshot(session);
+  };
 
   const renderChatUi = () => {
     const step = CHAT_STEPS[stepIndex];
@@ -92,13 +140,19 @@ export async function mountPatientChat(root, deps) {
       ? `<span class="badge badge-ai">AI support on</span>`
       : `<span class="badge badge-ai-off">Built-in replies. Personalized AI support is available when enabled on the server.</span>`;
 
-    const modeGuidedActive = uiMode === "guided";
-    const modeSupportActive = uiMode === "support";
+    const entryTabsHtml = ENTRY_TABS.map((t) => {
+      const active = (t.id === "open" && uiMode === "support") || (t.id !== "open" && uiMode === "guided" && entryTab === t.id);
+      return `<button type="button" class="support-entry-tab${active ? " is-active" : ""}" data-entry-tab="${escapeHtml(t.id)}" role="tab" aria-selected="${active}">
+        <span class="support-entry-title">${escapeHtml(t.title)}</span>
+        <span class="support-entry-desc">${escapeHtml(t.desc)}</span>
+      </button>`;
+    }).join("");
 
     const guidedPanel =
       uiMode === "guided"
         ? step && step.type !== "done"
           ? `<div class="support-step-panel">
+              ${entryTab === "dismissal" ? renderDismissalAdvocacyPanel(escapeHtml) : ""}
               ${guidedSectionLabel(step)}
               <p class="chat-bot-line">${escapeHtml(step.bot)}</p>
               ${
@@ -134,14 +188,16 @@ export async function mountPatientChat(root, deps) {
                   : ""
               }
             </div>`
-          : `<p class="muted">You have finished the step-by-step flow. Switch to <strong>Open conversation</strong> to keep talking, or use <a href="#/patient/checkin">Check-in</a> for a symptom log and educational summary.</p>`
+          : `<p class="muted">You have finished this flow. Try another tab, switch to <strong>Open chat</strong>, or build your <a href="#/patient/visit-brief">Visit brief</a>.</p>`
         : "";
+
+    const starters = entryTab === "dismissal" ? DISMISSAL_STARTERS : entryTab === "open" ? HARD_TO_SAY_STARTERS : SUPPORT_STARTERS;
 
     const supportPanel =
       uiMode === "support"
         ? `<div class="support-step-panel">
           <p class="muted support-panel-intro">Write in your own words. Pick a starter below or type your message.</p>
-          <div class="chat-starters">${SUPPORT_STARTERS.map(
+          <div class="chat-starters">${starters.map(
             (s) =>
               `<button type="button" class="btn btn-ghost chat-starter" data-starter="${escapeHtml(s)}" ${busy ? "disabled" : ""}>${escapeHtml(s)}</button>`
           ).join("")}</div>
@@ -150,7 +206,6 @@ export async function mountPatientChat(root, deps) {
             <textarea id="supportChatInput" rows="4" placeholder="What has been weighing on you—stress, fear, embarrassment, feeling dismissed…" maxlength="2000" ${busy ? "disabled" : ""}></textarea>
             <button class="btn btn-primary" type="submit" ${busy ? "disabled" : ""}>Send message</button>
           </form>
-          <p class="muted support-panel-foot">For cycles, pain, and similar details, use <a href="#/patient/checkin">Check-in</a>. This is not therapy and not a medical diagnosis.</p>
         </div>`
         : "";
 
@@ -167,23 +222,16 @@ export async function mountPatientChat(root, deps) {
       <main>
         <div class="card support-page">
           <h1>Support</h1>
-          <p class="muted support-lead">A private space for feelings and preparing to talk with a clinician. For symptom logging, use <a href="#/patient/checkin">Check-in</a> in the menu.</p>
+          ${renderAiNotCounsellorBanner()}
+          <p class="muted support-lead">Between medical touchpoints, anxiety and fear are common after a breast cancer diagnosis. A private space to reflect and prepare — not therapy, not medical advice. For wellness tracking, use <a href="#/patient/checkin">Wellness log</a>.</p>
+          ${renderHumanSupportFootnote(escapeHtml)}
           <p class="support-ai-line">${aiBadge}</p>
           <p id="aiFallbackHint" class="muted support-hint"></p>
-          <div class="support-mode-picker" role="tablist" aria-label="Support mode">
-            <button type="button" class="support-mode-card${modeGuidedActive ? " is-active" : ""}" data-chat-tab="guided" role="tab" aria-selected="${modeGuidedActive}">
-              <span class="support-mode-title">Step-by-step</span>
-              <span class="support-mode-desc">Short prompts about emotions and your care journey</span>
-            </button>
-            <button type="button" class="support-mode-card${modeSupportActive ? " is-active" : ""}" data-chat-tab="support" role="tab" aria-selected="${modeSupportActive}">
-              <span class="support-mode-title">Open conversation</span>
-              <span class="support-mode-desc">Write freely—stress, fear, or anything on your mind</span>
-            </button>
-          </div>
+          <div class="support-entry-tabs" role="tablist" aria-label="Support entry">${entryTabsHtml}</div>
           <div class="support-layout">
             <section class="support-conversation" aria-label="Conversation history">
               <h2 class="support-section-title">Conversation</h2>
-              <div class="chat-log" id="chatLog">${logHtml || `<p class="muted chat-log-empty">No messages yet. Choose a mode above and start below.</p>`}${busy ? `<p class="chat-typing muted">Thinking…</p>` : ""}</div>
+              <div class="chat-log" id="chatLog">${logHtml || `<p class="muted chat-log-empty">No messages yet. Choose a tab above and start below.</p>`}${busy ? `<p class="chat-typing muted">Thinking…</p>` : ""}</div>
             </section>
             <section class="support-input" aria-label="Reply">
               <h2 class="support-section-title">${escapeHtml(inputPanelTitle)}</h2>
@@ -191,7 +239,11 @@ export async function mountPatientChat(root, deps) {
               ${supportPanel}
             </section>
           </div>
+          <p class="muted support-panel-foot">Technology does not replace your doctor, counsellor, or support group. It may help you reflect, prepare, and feel less alone.</p>
           <div class="btn-row support-actions">
+            <a class="btn btn-ghost" href="#/patient/visit-brief">Visit brief</a>
+            <a class="btn btn-ghost" href="#/patient/find-help">Find human help</a>
+            <a class="btn btn-ghost" href="#/patient/screening">Screening</a>
             <button type="button" class="btn btn-ghost" id="clearChat" ${busy ? "disabled" : ""}>Clear chat</button>
             <a class="btn btn-ghost" href="#/patient/settings">Privacy</a>
             <a class="btn btn-ghost" href="#/patient">Home</a>
@@ -224,19 +276,41 @@ export async function mountPatientChat(root, deps) {
       }
     };
 
-    document.querySelectorAll("[data-chat-tab]").forEach((btn) => {
+    document.querySelectorAll("[data-entry-tab]").forEach((btn) => {
       btn.onclick = () => {
-        uiMode = btn.getAttribute("data-chat-tab") || "guided";
+        entryTab = btn.getAttribute("data-entry-tab") || "feelings";
+        if (entryTab === "open") {
+          uiMode = "support";
+        } else {
+          uiMode = "guided";
+          stepIndex = firstStepIndexForTab(entryTab);
+          if (entryTab === "dismissal" && messages.length === 0) {
+            messages.push({ role: "bot", text: getDismissalIntro() });
+          }
+        }
         renderChatUi();
       };
+    });
+
+    document.querySelectorAll(".dismissal-script").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const text = btn.getAttribute("data-script");
+        if (text) {
+          addVisitQuestion(session.patientId, { text, source: "dismissal" });
+          const msg = document.createElement("p");
+          msg.className = "muted";
+          msg.textContent = "Saved to your visit questions on Home.";
+          btn.parentElement?.appendChild(msg);
+        }
+      });
     });
 
     document.getElementById("clearChat")?.addEventListener("click", async () => {
       await clearChatUnified(session);
       messages = [];
-      stepIndex = 0;
+      stepIndex = firstStepIndexForTab(entryTab === "open" ? "feelings" : entryTab);
       collected = {};
-      uiMode = "guided";
+      uiMode = entryTab === "open" ? "support" : "guided";
       renderChatUi();
     });
 
@@ -280,12 +354,22 @@ export async function mountPatientChat(root, deps) {
         });
         const adv = advanceChat(stepIndex, val, collected);
         collected = adv.collected;
+        await persistCollected();
         stepIndex = adv.nextIndex;
         const nextStep = CHAT_STEPS[stepIndex];
         if (nextStep && nextStep.type !== "done") {
-          await pushMessage("bot", nextStep.bot);
+          if (entryTab === "dismissal" && !DISMISSAL_STEP_IDS.includes(nextStep.id)) {
+            stepIndex = stepIndexById("done");
+          } else if (entryTab === "feelings" && step.id === "emotionalText") {
+            stepIndex = stepIndexById("done");
+          } else if (entryTab === "visitprep" && step.id === "oneThingForDoctor") {
+            stepIndex = stepIndexById("done");
+          } else {
+            await pushMessage("bot", nextStep.bot);
+          }
         }
-        if (adv.done || nextStep?.type === "done") {
+        const doneStep = CHAT_STEPS[stepIndex];
+        if (adv.done || doneStep?.type === "done") {
           await pushMessage("bot", CHAT_STEPS[CHAT_STEPS.length - 1].bot);
           stepIndex = CHAT_STEPS.length - 1;
         }
@@ -306,6 +390,7 @@ export async function mountPatientChat(root, deps) {
       });
       const adv = advanceChat(stepIndex, val, collected);
       collected = adv.collected;
+      await persistCollected();
       stepIndex = adv.nextIndex;
       const nextStep = CHAT_STEPS[stepIndex];
       if (nextStep && nextStep.type !== "done") await pushMessage("bot", nextStep.bot);
@@ -326,6 +411,11 @@ export async function mountPatientChat(root, deps) {
       if (log) log.scrollTop = log.scrollHeight;
     });
   };
+
+  if (entryTab !== "open") {
+    uiMode = "guided";
+    stepIndex = firstStepIndexForTab(entryTab);
+  }
 
   if (messages.length > 0) {
     const lastBot = [...messages].reverse().find((m) => m.role === "bot");

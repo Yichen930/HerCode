@@ -83,6 +83,62 @@ def _ensure_user_columns(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE users ADD COLUMN share_chat_with_doctor INTEGER NOT NULL DEFAULT 0"
         )
+    if "share_with_caregiver" not in cols:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN share_with_caregiver INTEGER NOT NULL DEFAULT 0"
+        )
+
+
+def _ensure_caregiver_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS caregiver_patient_links (
+            caregiver_user_id INTEGER NOT NULL,
+            patient_user_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (caregiver_user_id, patient_user_id),
+            FOREIGN KEY (caregiver_user_id) REFERENCES users(id),
+            FOREIGN KEY (patient_user_id) REFERENCES users(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS between_visit_snapshots (
+            patient_user_id INTEGER PRIMARY KEY,
+            snapshot_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (patient_user_id) REFERENCES users(id)
+        )
+        """
+    )
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
+    ).fetchone()
+    sql = (row["sql"] if row else "") or ""
+    role_check_ok = "role IN ('patient', 'doctor', 'caregiver')" in sql.replace(" ", "")
+    if not role_check_ok:
+        conn.executescript(
+            """
+            CREATE TABLE users_role_mig (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('patient', 'doctor', 'caregiver')),
+                display_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                share_chat_with_doctor INTEGER NOT NULL DEFAULT 0,
+                share_with_caregiver INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO users_role_mig (id, email, password_hash, role, display_name, created_at, share_chat_with_doctor, share_with_caregiver)
+            SELECT id, email, password_hash, role, display_name, created_at,
+                   COALESCE(share_chat_with_doctor, 0),
+                   COALESCE(share_with_caregiver, 0)
+            FROM users;
+            DROP TABLE users;
+            ALTER TABLE users_role_mig RENAME TO users;
+            """
+        )
 
 
 def _ensure_submission_columns(conn: sqlite3.Connection) -> None:
@@ -108,10 +164,11 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
-                role TEXT NOT NULL CHECK (role IN ('patient', 'doctor')),
+                role TEXT NOT NULL CHECK (role IN ('patient', 'doctor', 'caregiver')),
                 display_name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                share_chat_with_doctor INTEGER NOT NULL DEFAULT 0
+                share_chat_with_doctor INTEGER NOT NULL DEFAULT 0,
+                share_with_caregiver INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS sessions (
@@ -193,13 +250,14 @@ def init_db() -> None:
         _ensure_user_columns(conn)
         _ensure_submission_columns(conn)
         _ensure_community_columns(conn)
+        _ensure_caregiver_schema(conn)
 
 
 class RegisterBody(BaseModel):
     email: EmailStr
     password: str = Field(min_length=4, max_length=128)
     display_name: str = Field(min_length=1, max_length=120)
-    role: str = Field(pattern="^(patient|doctor)$")
+    role: str = Field(pattern="^(patient|doctor|caregiver)$")
 
 
 class LoginBody(BaseModel):
@@ -217,6 +275,14 @@ class LinkBody(BaseModel):
 
 class ConsentBody(BaseModel):
     share_chat_with_doctor: bool
+
+
+class CaregiverConsentBody(BaseModel):
+    share_with_caregiver: bool
+
+
+class BetweenVisitBody(BaseModel):
+    snapshot: dict
 
 
 class ChatMessageBody(BaseModel):
@@ -242,16 +308,22 @@ class ClinicalRecordBody(BaseModel):
 
 def row_user(r: sqlite3.Row) -> dict:
     share = 0
+    share_cg = 0
     try:
         share = int(r["share_chat_with_doctor"] or 0)
     except (KeyError, IndexError):
         share = 0
+    try:
+        share_cg = int(r["share_with_caregiver"] or 0)
+    except (KeyError, IndexError):
+        share_cg = 0
     return {
         "id": r["id"],
         "email": r["email"],
         "role": r["role"],
         "display_name": r["display_name"],
         "share_chat_with_doctor": bool(share),
+        "share_with_caregiver": bool(share_cg),
     }
 
 
@@ -367,8 +439,16 @@ def register(body: RegisterBody) -> JSONResponse:
                 (email, pw_hash, body.role, body.display_name.strip(), created),
             )
             uid = cur.lastrowid
-    except sqlite3.IntegrityError:
-        raise HTTPException(status_code=409, detail="Email already registered")
+    except sqlite3.IntegrityError as exc:
+        msg = str(exc).lower()
+        if "unique" in msg or "email" in msg:
+            raise HTTPException(status_code=409, detail="Email already registered")
+        if "check constraint failed" in msg and body.role == "caregiver":
+            raise HTTPException(
+                status_code=500,
+                detail="Caregiver accounts are not enabled on this server database. Restart server.py after updating.",
+            )
+        raise HTTPException(status_code=400, detail="Could not create account")
     return JSONResponse({"ok": True, "user_id": uid}, status_code=201)
 
 
@@ -427,6 +507,38 @@ def update_consent(body: ConsentBody, user: sqlite3.Row = Depends(get_current_us
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
     _refresh_exports()
     return {"user": row_user(row)}
+
+
+@app.patch("/api/me/caregiver-consent")
+def update_caregiver_consent(body: CaregiverConsentBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "patient":
+        raise HTTPException(status_code=403, detail="Only patients can set caregiver sharing consent")
+    val = 1 if body.share_with_caregiver else 0
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE users SET share_with_caregiver = ? WHERE id = ?",
+            (val, user["id"]),
+        )
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+    return {"user": row_user(row)}
+
+
+@app.put("/api/me/between-visit")
+def upsert_between_visit(body: BetweenVisitBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "patient":
+        raise HTTPException(status_code=403, detail="Patients only")
+    updated = utcnow().isoformat()
+    payload = json.dumps(body.snapshot)
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO between_visit_snapshots (patient_user_id, snapshot_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(patient_user_id) DO UPDATE SET snapshot_json = excluded.snapshot_json, updated_at = excluded.updated_at
+            """,
+            (user["id"], payload, updated),
+        )
+    return {"ok": True, "updatedAt": updated}
 
 
 @app.get("/api/chat/messages")
@@ -919,6 +1031,90 @@ def link_patient(body: LinkBody, user: sqlite3.Row = Depends(get_current_user)) 
         )
     _refresh_exports()
     return {"ok": True, "patient_email": p_email, "patient_user_id": prow["id"]}
+
+
+@app.post("/api/caregiver/links")
+def caregiver_link_patient(body: LinkBody, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "caregiver":
+        raise HTTPException(status_code=403, detail="Only caregivers can link patients")
+    p_email = slug_email(str(body.patient_email))
+    with get_db() as conn:
+        prow = conn.execute(
+            "SELECT id, role FROM users WHERE email = ?", (p_email,)
+        ).fetchone()
+        if prow is None:
+            raise HTTPException(status_code=404, detail="Patient email not found")
+        if prow["role"] != "patient":
+            raise HTTPException(status_code=400, detail="Target user is not a patient account")
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO caregiver_patient_links (caregiver_user_id, patient_user_id, created_at)
+            VALUES (?, ?, ?)
+            """,
+            (user["id"], prow["id"], utcnow().isoformat()),
+        )
+    return {"ok": True, "patient_email": p_email, "patient_user_id": prow["id"]}
+
+
+@app.get("/api/caregiver/patients")
+def caregiver_patients(user: sqlite3.Row = Depends(get_current_user)) -> list[dict]:
+    if user["role"] != "caregiver":
+        raise HTTPException(status_code=403, detail="Caregivers only")
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT u.id AS patient_id, u.email AS patient_email, u.share_with_caregiver
+            FROM caregiver_patient_links l
+            JOIN users u ON u.id = l.patient_user_id
+            WHERE l.caregiver_user_id = ?
+            ORDER BY u.email
+            """,
+            (user["id"],),
+        ).fetchall()
+    return [
+        {
+            "patient_id": r["patient_id"],
+            "patient_email": r["patient_email"],
+            "share_with_caregiver": bool(r["share_with_caregiver"]),
+        }
+        for r in rows
+    ]
+
+
+def _linked_caregiver_patient_row(conn: sqlite3.Connection, caregiver_id: int, email: str) -> sqlite3.Row | None:
+    return conn.execute(
+        """
+        SELECT u.id, u.email, u.share_with_caregiver, u.display_name
+        FROM caregiver_patient_links l
+        JOIN users u ON u.id = l.patient_user_id
+        WHERE l.caregiver_user_id = ? AND u.email = ?
+        """,
+        (caregiver_id, email),
+    ).fetchone()
+
+
+@app.get("/api/caregiver/patients/{patient_email}/between-visit")
+def caregiver_between_visit(patient_email: str, user: sqlite3.Row = Depends(get_current_user)) -> dict:
+    if user["role"] != "caregiver":
+        raise HTTPException(status_code=403, detail="Caregivers only")
+    email = slug_email(patient_email)
+    with get_db() as conn:
+        prow = _linked_caregiver_patient_row(conn, user["id"], email)
+        if prow is None:
+            raise HTTPException(status_code=404, detail="Patient not linked")
+        if not prow["share_with_caregiver"]:
+            raise HTTPException(status_code=403, detail="Patient has not enabled caregiver sharing")
+        row = conn.execute(
+            "SELECT snapshot_json, updated_at FROM between_visit_snapshots WHERE patient_user_id = ?",
+            (prow["id"],),
+        ).fetchone()
+    if row is None:
+        return {"snapshot": {}, "updatedAt": None, "patientDisplayName": prow["display_name"]}
+    return {
+        "snapshot": json.loads(row["snapshot_json"]),
+        "updatedAt": row["updated_at"],
+        "patientDisplayName": prow["display_name"],
+    }
 
 
 @app.get("/api/doctor/patients")

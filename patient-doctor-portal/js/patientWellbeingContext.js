@@ -1,89 +1,94 @@
 /**
- * Patient-facing multi-topic reflection — qualitative only, no lab values.
- * Educational visit-prep; not a diagnosis.
+ * Patient-facing reflection between oncology touchpoints — qualitative only, non-diagnostic.
  */
+
+import { setReflectSnapshot } from "./betweenVisitStore.js";
+import { getCohortReassurance, renderCohortReassurancePanel } from "./cohortReassurance.js";
+import { autoCollectVisitQuestions } from "./visitQuestions.js";
+import { syncBetweenVisitSnapshot } from "./sessionManager.js";
 
 const STORAGE_KEY = "hearher.patient.reflect.v1";
 
 const THEMES = [
   {
-    id: "cycles",
-    title: "Cycles & timing",
-    lead: "Your answers touch on menstrual pattern — something clinicians often explore alongside hormones and ultrasound.",
+    id: "phase",
+    title: "Treatment phase",
+    lead: "Transitions between diagnosis, treatment, and follow-up often bring the most uncertainty.",
     suggestions: [
-      "Jot down the first day of your last few periods, even if dates are approximate.",
-      "Irregular or unpredictable cycles have many possible causes — you do not need to sort it out alone before the visit.",
-      "It is fine to ask how your clinician checks ovulation and thyroid function without bringing exact lab numbers today.",
+      "Ask what the next few weeks typically look like for someone at your stage.",
+      "It is okay to say you do not understand the timeline yet.",
+      "Write down who to call after hours if something worries you.",
     ],
     scoreFrom: (a) => {
-      if (a.cycle === "often") return 1;
-      if (a.cycle === "sometimes") return 0.65;
-      if (a.cycle === "unsure") return 0.35;
-      if (a.cycle === "regular") return 0.15;
+      if (a.phase === "newly_diagnosed") return 1;
+      if (a.phase === "active_treatment") return 0.85;
+      if (a.phase === "post_treatment") return 0.7;
+      if (a.phase === "survivorship") return 0.5;
       return null;
     },
   },
   {
-    id: "androgen",
-    title: "Skin & hair",
-    lead: "Skin or hair changes you noticed are worth mentioning — they are often discussed alongside cycle and hormone questions.",
+    id: "mood",
+    title: "Mood & anxiety",
+    lead: "Anxiety and grief between appointments are common — they are not a sign you are failing.",
     suggestions: [
-      "Describe what changed (acne, excess hair, thinning) and when you first noticed it.",
-      "You can ask whether hormone blood tests would help — your clinician interprets results, not this app.",
-      "These signs overlap several conditions; a timeline helps more than a single symptom.",
+      "Tell your team if fear is affecting sleep, appetite, or daily life.",
+      "Ask about counsellor or support group referrals — BCF and hospital programmes may help.",
+      "Try a two-minute breathing exercise from Learn before your next visit.",
     ],
     scoreFrom: (a) => {
-      if (a.skin === "yes") return 1;
-      if (a.skin === "little") return 0.55;
-      if (a.skin === "no") return 0.1;
+      if (a.mood === "high_anxiety") return 1;
+      if (a.mood === "low_mood") return 0.95;
+      if (a.mood === "mixed") return 0.75;
+      if (a.mood === "okay") return 0.2;
       return null;
     },
   },
   {
-    id: "metabolic",
-    title: "Energy, weight & metabolism",
-    lead: "Energy or weight concerns often come up in visits about cycles and long-term health — not a personal failing.",
+    id: "sleep",
+    title: "Sleep",
+    lead: "Poor sleep can amplify anxiety and fatigue during treatment.",
     suggestions: [
-      "Mention any recent weight change and how energy or sleep have been, in your own words.",
-      "Clinicians may discuss glucose or insulin screening when appropriate — you can ask what is right for you.",
-      "Small, sustainable habits matter; your clinician can help prioritize what to try first.",
+      "Mention sleep changes even if they feel secondary to treatment.",
+      "Ask whether timing of medicines or anxiety might be contributing.",
+      "Rest is part of care — not laziness.",
     ],
     scoreFrom: (a) => {
-      if (a.energy === "concern") return 1;
-      if (a.energy === "some") return 0.6;
-      if (a.energy === "fine") return 0.1;
+      if (a.sleep === "poor") return 1;
+      if (a.sleep === "fair") return 0.55;
+      if (a.sleep === "good") return 0.1;
       return null;
     },
   },
   {
-    id: "pain",
-    title: "Period pain & pelvic comfort",
-    lead: "Pain that affects your daily life deserves attention — especially if it tracks with your cycle or is getting worse.",
+    id: "sideEffects",
+    title: "Side effects & energy",
+    lead: "Physical discomfort between visits deserves mention — you do not need medical words.",
     suggestions: [
-      "Note whether pain is cyclical, where you feel it, and if bowel or bladder symptoms flare with periods.",
-      "Mild cramping is common; pain that stops you from school, work, or sleep is worth saying clearly.",
-      "Seek urgent care if you have sudden severe pain, fainting, or bleeding that soaks through pads very quickly.",
+      "Note which days are hardest (treatment days vs rest days).",
+      "Ask what is expected versus what needs a same-day call.",
+      "Seek urgent care for sudden severe symptoms your team has flagged as emergencies.",
     ],
     scoreFrom: (a) => {
-      if (a.pain === "moderate") return 1;
-      if (a.pain === "mild") return 0.5;
-      if (a.pain === "none") return 0.05;
+      if (a.sideEffects === "significant") return 1;
+      if (a.sideEffects === "some") return 0.6;
+      if (a.sideEffects === "minimal") return 0.1;
       return null;
     },
   },
   {
-    id: "fertility",
-    title: "Fertility & future plans",
-    lead: "Wanting to conceive (now or later) is a valid reason to bring up cycles and hormones early.",
+    id: "overload",
+    title: "Information overload",
+    lead: "Too much information at once is overwhelming for many people after diagnosis.",
     suggestions: [
-      "Share your timeline openly — there is no wrong time to ask about fertility planning.",
-      "Different conditions affect fertility in different ways; your clinician can outline sensible next steps.",
-      "You can ask for a referral to reproductive health services when you feel ready.",
+      "Ask your doctor to prioritise the top three things to focus on.",
+      "It is fine not to read every leaflet before the next visit.",
+      "Use Visit Questions to save one question at a time.",
     ],
     scoreFrom: (a) => {
-      if (a.fertility === "yes") return 1;
-      if (a.fertility === "maybe") return 0.5;
-      if (a.fertility === "no") return 0;
+      if (a.infoOverload === "yes") return 1;
+      if (a.infoOverload === "sometimes") return 0.65;
+      if (a.infoOverload === "no") return 0.05;
       return null;
     },
   },
@@ -100,13 +105,15 @@ function escapeHtml(s) {
 function readForm(form) {
   const g = (name) => form.elements.namedItem(name)?.value ?? "";
   return {
-    cycle: g("cycle"),
-    skin: g("skin"),
-    energy: g("energy"),
-    pain: g("pain"),
-    fertility: g("fertility"),
+    phase: g("phase"),
+    mood: g("mood"),
+    sleep: g("sleep"),
+    sideEffects: g("sideEffects"),
+    infoOverload: g("infoOverload"),
   };
 }
+
+export { readForm as readReflectForm };
 
 function countAnswered(answers) {
   return Object.values(answers).filter((v) => v && v !== "prefer").length;
@@ -139,9 +146,9 @@ export function computePatientWellbeing(answers) {
       filled,
       scored,
       suggestions: [
-        "Nothing here sounds urgent from this short reflection — still bring any questions that worry you.",
-        "A check-in log can add detail over time if symptoms change.",
-        "Your clinician can always run appropriate tests; you do not need numbers before the visit.",
+        "Nothing urgent stands out from this short reflection — still bring anything that worries you.",
+        "Check-in can log mood, sleep, and side effects over time.",
+        "Calming exercises in Learn may help before your next touchpoint.",
       ],
     };
   }
@@ -183,7 +190,7 @@ function pickSuggestions(themes, max) {
 function renderResult(result) {
   if (result.status === "insufficient") {
     return `<div class="patient-reflect-result patient-reflect-result--muted">
-      <p>Choose at least <strong>${result.minFields}</strong> topics that feel relevant — there are no right answers, and you never need lab numbers here.</p>
+      <p>Choose at least <strong>${result.minFields}</strong> topics that feel relevant — there are no right answers.</p>
       <p class="muted">You selected ${result.filled}.</p>
     </div>`;
   }
@@ -192,40 +199,35 @@ function renderResult(result) {
   let lead = "";
 
   if (result.status === "steady") {
-    title = "A snapshot for your next visit";
-    lead =
-      "From what you shared, nothing stands out as urgent here. You can still use the ideas below to prepare questions for your clinician.";
+    title = "A snapshot between appointments";
+    lead = "From what you shared, nothing stands out as urgent here. You can still use the ideas below to prepare for your care team.";
   } else if (result.status === "several") {
     const names = result.active.map((t) => t.title.toLowerCase()).join(", ");
-    title = "A few areas worth discussing together";
-    lead = `Your answers touch on ${escapeHtml(names)}. Overlapping symptoms are common — one visit can cover more than one topic.`;
+    title = "A few areas worth attention";
+    lead = `Your answers touch on ${escapeHtml(names)}. Overlapping feelings are common between medical touchpoints.`;
   } else {
-    title = "Something to bring up at your next visit";
+    title = "Something to bring up at your next touchpoint";
     lead = result.top.lead;
   }
 
-  const suggestionItems = result.suggestions
-    .map((s) => `<li>${escapeHtml(s)}</li>`)
-    .join("");
+  const suggestionItems = result.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
 
   const chips = (result.active || result.scored?.filter((t) => t.score >= 0.45) || [])
     .slice(0, 4)
-    .map(
-      (t) =>
-        `<span class="patient-reflect-chip">${escapeHtml(t.title)}</span>`
-    )
+    .map((t) => `<span class="patient-reflect-chip">${escapeHtml(t.title)}</span>`)
     .join("");
 
   return `<div class="patient-reflect-result">
-    <p class="patient-reflect-result-eyebrow">Visit prep</p>
+    <p class="patient-reflect-result-eyebrow">Between visits</p>
     <h3 class="patient-reflect-result-title">${escapeHtml(title)}</h3>
     <p class="patient-reflect-result-lead">${lead}</p>
     ${chips ? `<div class="patient-reflect-chips" aria-label="Topics you highlighted">${chips}</div>` : ""}
+    <div id="patient-reflect-reassurance"></div>
     <h4 class="patient-reflect-suggestions-label">Suggestions</h4>
     <ul class="patient-reflect-suggestions">${suggestionItems}</ul>
     <p class="patient-reflect-disclaimer muted">
-      This is educational only — not a diagnosis. For severe pain, heavy bleeding, or sudden changes, contact urgent care or your clinician.
-      <a href="#/patient/checkin">Check-in</a> can store a fuller symptom log to share.
+      Emotional and educational support only — not medical advice. For urgent physical symptoms, contact your oncology team or emergency services.
+      <a href="#/patient/checkin">Check-in</a> can log mood, sleep, and side effects between visits.
     </p>
   </div>`;
 }
@@ -233,62 +235,64 @@ function renderResult(result) {
 export function renderPatientWellbeingPanel() {
   return `<section class="home-panel home-panel--reflect" id="patient-reflect-panel">
     <header class="home-panel-head">
-      <h2>Reflect on your pattern</h2>
-      <p class="muted">No lab numbers — just how things feel lately. Suggestions for what to discuss with your clinician, not a diagnosis.</p>
+      <h2>Reflect between touchpoints</h2>
+      <p class="muted">How are you feeling between appointments? Suggestions for your care team — not a diagnosis.</p>
     </header>
     <div class="patient-reflect-layout">
       <form class="patient-reflect-form" id="patient-reflect-form" onsubmit="return false;">
-        <label class="patient-reflect-label">Cycles lately
-          <select name="cycle">
+        <label class="patient-reflect-label">Where you are in care
+          <select name="phase">
             <option value="">—</option>
-            <option value="regular">Mostly regular</option>
-            <option value="sometimes">Sometimes irregular</option>
-            <option value="often">Often irregular or unpredictable</option>
-            <option value="unsure">Not sure</option>
-          </select>
-        </label>
-        <label class="patient-reflect-label">Skin or hair changes
-          <select name="skin">
-            <option value="">—</option>
-            <option value="no">No noticeable changes</option>
-            <option value="little">A little (mild acne, etc.)</option>
-            <option value="yes">Yes — noticeable</option>
+            <option value="newly_diagnosed">Newly diagnosed / planning treatment</option>
+            <option value="active_treatment">Active treatment</option>
+            <option value="post_treatment">Recently finished a treatment phase</option>
+            <option value="survivorship">Survivorship / long-term follow-up</option>
             <option value="prefer">Prefer not to say</option>
           </select>
         </label>
-        <label class="patient-reflect-label">Energy or weight
-          <select name="energy">
+        <label class="patient-reflect-label">Mood lately
+          <select name="mood">
             <option value="">—</option>
-            <option value="fine">Mostly fine</option>
-            <option value="some">Some difficulty / fluctuation</option>
-            <option value="concern">A bigger concern lately</option>
+            <option value="high_anxiety">High anxiety or fear</option>
+            <option value="low_mood">Low mood or grief</option>
+            <option value="mixed">Mixed — up and down</option>
+            <option value="okay">Mostly okay</option>
             <option value="prefer">Prefer not to say</option>
           </select>
         </label>
-        <label class="patient-reflect-label">Pain with periods
-          <select name="pain">
+        <label class="patient-reflect-label">Sleep
+          <select name="sleep">
             <option value="">—</option>
-            <option value="none">Little or none</option>
-            <option value="mild">Mild — manageable</option>
-            <option value="moderate">Moderate or worse / affects daily life</option>
+            <option value="poor">Poor most nights</option>
+            <option value="fair">Fair / inconsistent</option>
+            <option value="good">Mostly good</option>
             <option value="prefer">Prefer not to say</option>
           </select>
         </label>
-        <label class="patient-reflect-label">Thinking about pregnancy
-          <select name="fertility">
+        <label class="patient-reflect-label">Side effects or discomfort
+          <select name="sideEffects">
             <option value="">—</option>
-            <option value="no">Not right now</option>
-            <option value="maybe">Maybe / planning ahead</option>
-            <option value="yes">Yes — trying or hoping to</option>
+            <option value="significant">Significant — affects daily life</option>
+            <option value="some">Some discomfort</option>
+            <option value="minimal">Minimal / none lately</option>
+            <option value="prefer">Prefer not to say</option>
+          </select>
+        </label>
+        <label class="patient-reflect-label">Information overload
+          <select name="infoOverload">
+            <option value="">—</option>
+            <option value="yes">Yes — overwhelmed</option>
+            <option value="sometimes">Sometimes</option>
+            <option value="no">Managing okay</option>
             <option value="prefer">Prefer not to say</option>
           </select>
         </label>
         <button type="button" class="btn btn-primary btn-sm" id="patient-reflect-btn">See suggestions</button>
-        <p class="muted patient-reflect-hint">Pick any two or more. Your clinician interprets tests — you do not need exact results here.</p>
+        <p class="muted patient-reflect-hint">Pick any two or more. This supports reflection — not medical decisions.</p>
       </form>
       <div class="patient-reflect-result-wrap" aria-live="polite">
         <p id="patient-reflect-placeholder" class="patient-reflect-placeholder muted">
-          Suggestions appear here after you submit. Topics are combined the way clinicians often discuss them — this is not a diagnosis from one symptom.
+          Suggestions appear here after you submit — to help you prepare emotionally for your next touchpoint.
         </p>
         <div id="patient-reflect-result"></div>
       </div>
@@ -321,7 +325,7 @@ function applyDraft(form, draft) {
   }
 }
 
-export function initPatientWellbeingPanel() {
+export function initPatientWellbeingPanel(patientId) {
   const form = document.getElementById("patient-reflect-form");
   const btn = document.getElementById("patient-reflect-btn");
   const resultEl = document.getElementById("patient-reflect-result");
@@ -336,6 +340,18 @@ export function initPatientWellbeingPanel() {
     const result = computePatientWellbeing(answers);
     resultEl.innerHTML = renderResult(result);
     if (placeholder) placeholder.classList.toggle("hidden", result.status !== "insufficient");
+
+    if (patientId && result.status !== "insufficient") {
+      const themeIds = (result.active || result.scored || []).map((t) => t.id).filter(Boolean);
+      setReflectSnapshot(patientId, answers, themeIds);
+      autoCollectVisitQuestions(patientId, { suggestions: result.suggestions || [] });
+      const reassuranceEl = document.getElementById("patient-reflect-reassurance");
+      if (reassuranceEl) {
+        const lines = getCohortReassurance(answers, {});
+        reassuranceEl.innerHTML = renderCohortReassurancePanel(lines);
+      }
+      syncBetweenVisitSnapshot({ role: "patient", patientId }).catch(() => {});
+    }
   };
 
   btn.addEventListener("click", run);

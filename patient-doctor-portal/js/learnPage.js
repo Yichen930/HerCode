@@ -1,5 +1,4 @@
 import { buildFlashcardDeck, FLASHCARD_DECKS } from "./flashcards.js";
-import { PCOS_COHORT } from "./researchData.js";
 
 /**
  * @param {HTMLElement} root
@@ -27,8 +26,8 @@ export function mountLearnPage(root, deps) {
       `
       <main>
         <div class="card">
-          <h1>Learn</h1>
-          <p class="muted">Tap a card to flip. Short, practical topics—visit tips, myths you may hear, and condition basics grounded in our PCOS cohort (n=${PCOS_COHORT.n}).</p>
+          <h1>Calm &amp; learn</h1>
+          <p class="muted">Tap a card to flip. Calming exercises, visit prep, caregiver tips, and emotional support between medical touchpoints — not medical advice.</p>
           <div class="flash-deck-tabs btn-row">
             ${FLASHCARD_DECKS.map(
               (d) =>

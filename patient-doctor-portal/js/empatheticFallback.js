@@ -144,10 +144,14 @@ export function getFreeformFallback(text) {
       "Tracking patterns in Check-in can help you advocate. A clinician can validate with exams and tests, not guesswork."
     );
   }
-  if (/pcos|endometri|endo\b|period|cycle|hair|acne|infertil|pain|bleeding/.test(t)) {
+  if (/pcos|endometri|endo\b|period|cycle|hair|acne|infertil|pelvic/.test(t)) {
     return (
-      "Those sound like topics for a structured symptom log and a clinician visit—not something we need to quiz you on again here. " +
-      "Open Check-in to record cycles, pain, skin/hair, and get an educational summary. In this chat, focus on how it affects you emotionally."
+      "Those sound like topics for your oncology or wellness team — use Wellness log to track mood, sleep, and side effects. In this chat, focus on how the journey affects you emotionally between touchpoints."
+    );
+  }
+  if (/chemo|mastect|radiation|oncolog|breast cancer|tumor|scan|metastas/.test(t)) {
+    return (
+      "Treatment and scan worries are heavy to carry alone. You might write one sentence you wish your team understood about your emotional impact. Use Visit brief to prepare questions — this chat is not medical advice."
     );
   }
   return (

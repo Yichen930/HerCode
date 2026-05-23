@@ -1,17 +1,13 @@
 /**
- * Check-in completeness rules — avoid empty submissions cluttering the database.
+ * Check-in completeness rules — wellness log between oncology touchpoints (non-diagnostic).
  */
 
 const SELECT_FIELDS = [
-  "cycleRegularity",
-  "painLevel",
-  "painTiming",
-  "skinHair",
-  "bowelBladder",
-  "weightChange",
-  "heavyBleeding",
-  "bmiCategory",
-  "fertilityConcern",
+  "treatmentPhase",
+  "mood",
+  "sideEffects",
+  "sleep",
+  "informationOverload",
 ];
 
 const MIN_NOTES_CHARS = 20;
@@ -25,7 +21,7 @@ function isMeaningfulAge(raw) {
   const t = trimVal(raw);
   if (!t) return false;
   const n = parseInt(t, 10);
-  return Number.isFinite(n) && n >= 8 && n <= 80;
+  return Number.isFinite(n) && n >= 18 && n <= 90;
 }
 
 function isMeaningfulSelect(raw) {
@@ -76,10 +72,10 @@ export function validateCheckinAnswers(answers) {
   }
 
   let message =
-    "This check-in was not saved. Please answer at least 2 questions (choose an option other than “Prefer not to say”), or add a short note (at least 20 characters) for your clinician.";
+    "This check-in was not saved. Please answer at least 2 questions (choose an option other than “Prefer not to say”), or add a short note (at least 20 characters).";
   if (hasAge && selectCount === 0 && !hasNotes) {
     message =
-      "Age alone is not enough to save a check-in. Please answer at least one symptom question or add a short note.";
+      "Age alone is not enough to save a check-in. Please answer at least one wellness question or add a short note.";
   }
 
   return { ok: false, message };

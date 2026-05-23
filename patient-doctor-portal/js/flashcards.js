@@ -1,44 +1,34 @@
-import { CONDITION_EDUCATION, SYMPTOM_DIFFERENTIATION, PCOS_COHORT } from "./researchData.js";
+/**
+ * Learn flashcards — BCF-aligned between-visit support (non-medical).
+ */
+
+const BCF_CAREGIVER_URL = "https://bcf.org.sg/guidance/caregiving";
 
 /**
  * @typedef {{ id: string, deck: string, front: string, back: string, tag?: string }} Flashcard
  */
 
-const QUICK_FACTS = [
+const CALMING = [
   {
-    id: "qf-delay",
-    deck: "Quick facts",
-    tag: "Did you know?",
-    front: "Why do many people wait years before a diagnosis?",
-    back: `In our research cohort (n=${PCOS_COHORT.n}), symptoms are often dismissed as stress or “normal hormones.” Long delays are common—not a sign that you are overreacting.`,
+    id: "calm-breath",
+    deck: "Calming exercises",
+    tag: "2 minutes",
+    front: "Box breathing when anxiety spikes",
+    back: "Breathe in for 4 counts, hold 4, out 4, hold 4. Repeat 4 times.\n\nThis is not treatment — a brief pause before you call someone, write a note, or rest.",
   },
   {
-    id: "qf-labs",
-    deck: "Quick facts",
-    tag: "Labs",
-    front: "Why might a clinician order blood tests for irregular cycles?",
-    back: "Thyroid disease, prolactin, and androgen levels can all change bleeding and skin/hair symptoms. Ruling these out helps avoid chasing the wrong explanation.",
+    id: "calm-ground",
+    deck: "Calming exercises",
+    tag: "Grounding",
+    front: "5-4-3-2-1 grounding",
+    back: "Name 5 things you see, 4 you feel, 3 you hear, 2 you smell, 1 you taste.\n\nUseful when information overload or fear feels loud between appointments.",
   },
   {
-    id: "qf-pcos-not-one",
-    deck: "Quick facts",
-    tag: "PCOS",
-    front: "Is PCOS only an “ovary” problem?",
-    back: "No. It often involves metabolism (insulin resistance), androgen signs, and cycle regulation—not just cysts on an ultrasound. Treatment targets your main concerns, not a single lab value.",
-  },
-  {
-    id: "qf-pain",
-    deck: "Quick facts",
-    tag: "Pain",
-    front: "When is period pain worth bringing up again?",
-    back: "If pain limits work, school, or relationships—or keeps getting worse—it deserves evaluation. Endometriosis and other conditions are frequently underdiagnosed.",
-  },
-  {
-    id: "qf-overlap",
-    deck: "Quick facts",
-    tag: "Overlap",
-    front: "Can someone have both PCOS and endometriosis?",
-    back: "Yes. They are different mechanisms and can overlap. Symptoms alone rarely separate them—clinicians use patterns, exams, imaging, and sometimes surgery.",
+    id: "calm-hand",
+    deck: "Calming exercises",
+    tag: "Before a visit",
+    front: "One minute before your appointment",
+    back: "Place a hand on your chest. Say one true sentence: “I can ask one question at a time.”\n\nYou do not need to be calm — just present enough to be heard.",
   },
 ];
 
@@ -47,118 +37,83 @@ const VISIT_PREP = [
     id: "vp-one-sentence",
     deck: "Visit prep",
     tag: "Before you go",
-    front: "You have 15 minutes. What is the one sentence that helps most?",
-    back: "Lead with: what worries you most + how long + what you already tried.\n\nExample: “Pelvic pain for two years; ibuprofen only helps a little; I’m scared I’m being dismissed.”",
-  },
-  {
-    id: "vp-symptoms-list",
-    deck: "Visit prep",
-    tag: "Before you go",
-    front: "Should you memorize every symptom?",
-    back: "No—pick your top three that affect daily life. Use Check-in to log details beforehand so you can show a clear timeline instead of trying to remember under pressure.",
-  },
-  {
-    id: "vp-dismissed",
-    deck: "Visit prep",
-    tag: "Advocacy",
-    front: "What if you were told it is “just stress”?",
-    back: "You can say: “Stress may play a role, but these symptoms persist and affect my life. I would like a structured workup for cycle and pain disorders.” Bring dates and severity, not just feelings.",
+    front: "You have limited time with your oncologist. What helps most?",
+    back: "Lead with: what worries you most + since when + what you already tried.\n\nExample: “Anxiety between chemo cycles is affecting sleep — I need clarity on what is normal versus urgent.”",
   },
   {
     id: "vp-questions",
     deck: "Visit prep",
     tag: "Questions to ask",
-    front: "Three questions worth asking at the end of a visit",
-    back: "• What are we ruling in or out next?\n• What should I track before follow-up?\n• When should I seek urgent care if things change?",
+    front: "Three questions worth asking",
+    back: "• What should I watch for before the next visit?\n• Who do I contact if I am unsure after hours?\n• What support (counselling, groups) do you recommend?",
+  },
+  {
+    id: "vp-overload",
+    deck: "Visit prep",
+    tag: "Information overload",
+    front: "Too much information — what can I say?",
+    back: "“I feel overwhelmed. Can we focus on the top three priorities for this week?”\n\nValid, common, and helps your team meet you where you are.",
   },
   {
     id: "vp-records",
     deck: "Visit prep",
-    tag: "Records",
-    front: "What is worth saving between appointments?",
-    back: "Cycle dates, pain severity (0–10), bleeding heaviness, and photos of skin changes if relevant. Patterns over 2–3 months beat a single bad day.",
+    tag: "Between visits",
+    front: "What is worth tracking between appointments?",
+    back: "Mood (1–10), sleep, side effects on treatment days, and one sentence of what felt hardest emotionally — patterns help more than a single bad day.",
+  },
+];
+
+const CAREGIVER = [
+  {
+    id: "cg-listen",
+    deck: "Caregiver support",
+    tag: "For caregivers",
+    front: "What helps most when you cannot fix it?",
+    back: "Listen without minimising (“I believe you”, “That sounds hard”). Offer practical help on treatment days.\n\nBCF caregiving guide: " + BCF_CAREGIVER_URL,
+  },
+  {
+    id: "cg-boundaries",
+    deck: "Caregiver support",
+    tag: "For caregivers",
+    front: "Caregivers struggle quietly too",
+    back: "You are allowed to feel exhausted or scared. Taking care of yourself helps you show up — BCF and counsellors support caregivers, not only patients.",
+  },
+  {
+    id: "cg-explain",
+    deck: "Caregiver support",
+    tag: "Family",
+    front: "How do I explain this to children or family?",
+    back: "Use plain language, one fact at a time. It is okay to say “I do not have all the answers yet.” Use the app’s Family Explain page to draft words you can share.",
   },
 ];
 
 const MYTHS = [
   {
-    id: "myth-stress",
-    deck: "Myths",
+    id: "myth-positive",
+    deck: "Emotional support",
     tag: "Myth vs fact",
-    front: "“It is probably just stress.”",
-    back: "Stress can affect cycles, but ongoing pain, irregular bleeding, or androgen signs deserve medical evaluation—not dismissal.",
+    front: "“I should stay positive all the time.”",
+    back: "Fear, grief, and anger are normal after diagnosis. Naming feelings is not negativity — it is part of coping. Counsellors and peer support exist for this.",
   },
   {
-    id: "myth-normal",
-    deck: "Myths",
-    tag: "Myth vs fact",
-    front: "“Painful periods are normal for everyone.”",
-    back: "Mild cramping is common. Pain that regularly stops you from normal activities, or that worsens year after year, is worth discussing with a clinician.",
+    id: "myth-ai",
+    deck: "Emotional support",
+    tag: "This app",
+    front: "Can this app replace my doctor or counsellor?",
+    back: "No. This companion helps you reflect, prepare questions, and feel less alone between touchpoints — human care remains essential.",
   },
   {
-    id: "myth-pcos-only",
-    deck: "Myths",
-    tag: "Myth vs fact",
-    front: "“PCOS only matters if you want pregnancy.”",
-    back: "PCOS also relates to metabolic health, skin and hair changes, and long-term cardiovascular risk—not only fertility.",
-  },
-  {
-    id: "myth-weight",
-    deck: "Myths",
-    tag: "Myth vs fact",
-    front: "“Just lose weight and PCOS will disappear.”",
-    back: "Weight can influence symptoms, but PCOS is not a willpower problem. Care should address hormones, metabolism, mental health, and your goals—not blame.",
-  },
-  {
-    id: "myth-ultrasound",
-    deck: "Myths",
-    tag: "Myth vs fact",
-    front: "“A clear ultrasound means nothing is wrong.”",
-    back: "PCOS and endometriosis are not always visible on routine imaging. Normal scans do not erase your symptoms or the need for follow-up.",
+    id: "myth-alone",
+    deck: "Emotional support",
+    tag: "You are not alone",
+    front: "“No one understands what I am going through.”",
+    back: "Many women and caregivers describe the same anxiety between appointments. Peer community and BCF support services exist because this isolation is common — not because you are failing.",
   },
 ];
 
 /** @returns {Flashcard[]} */
 export function buildFlashcardDeck() {
-  /** @type {Flashcard[]} */
-  const cards = [...QUICK_FACTS, ...VISIT_PREP, ...MYTHS];
-
-  for (const c of CONDITION_EDUCATION) {
-    const short = c.name.split("(")[0].trim();
-    cards.push({
-      id: `${c.id}-what`,
-      deck: "Conditions",
-      tag: short,
-      front: `What should I know about ${short}?`,
-      back: c.summary,
-    });
-    cards.push({
-      id: `${c.id}-symptoms`,
-      deck: "Conditions",
-      tag: "Symptoms",
-      front: `Which symptoms might point to ${short}?`,
-      back: c.commonSymptoms.map((s) => `• ${s}`).join("\n"),
-    });
-    cards.push({
-      id: `${c.id}-care`,
-      deck: "Conditions",
-      tag: "When to seek care",
-      front: `When is it time to push for more evaluation (${short})?`,
-      back: c.whenToSeekCare,
-    });
-  }
-
-  for (const row of SYMPTOM_DIFFERENTIATION) {
-    cards.push({
-      id: `diff-${row.topic.replace(/\s+/g, "-").toLowerCase()}`,
-      deck: "Compare",
-      tag: row.topic,
-      front: `${row.topic}: could this be PCOS, endometriosis, or something else?`,
-      back: `Often with PCOS: ${row.pcos}\n\nOften with endometriosis: ${row.endo}\n\nAlso consider: ${row.other}`,
-    });
-  }
-
-  return cards;
+  return [...CALMING, ...VISIT_PREP, ...CAREGIVER, ...MYTHS];
 }
 
-export const FLASHCARD_DECKS = ["All", "Quick facts", "Visit prep", "Conditions", "Compare", "Myths"];
+export const FLASHCARD_DECKS = ["All", "Calming exercises", "Visit prep", "Caregiver support", "Emotional support"];
